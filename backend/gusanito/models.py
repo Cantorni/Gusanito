@@ -78,8 +78,16 @@ SenalGusano = Literal[
 
 
 class Analysis(BaseModel):
-    """What Claude returns for a report. Field names are Spanish, as in the project proposal."""
+    """What Claude returns for a report: a yes/no answer, how sure it is, and the evidence behind it.
+    Field names are Spanish, as in the project proposal."""
 
+    hay_plaga: bool = Field(description="La respuesta: true si las fotos muestran gusano cogollero, false si no.")
+    confianza: float = Field(
+        ge=0,
+        le=1,
+        description="Qué tan seguro estás de tu respuesta en hay_plaga, sea sí o no, sobre lo que muestran "
+        "las fotos: cerca de 1 si estás muy seguro, cerca de 0 si no puedes distinguirlo.",
+    )
     calidad_fotos: Literal["buena", "aceptable", "no_sirve"]
     tipo_vegetacion: Literal[
         "maiz", "sorgo", "pasto", "otro_cultivo", "arboles_o_arbustos", "suelo_desnudo", "incierto"
@@ -89,11 +97,6 @@ class Analysis(BaseModel):
         description="Señales de gusano cogollero visibles. Lista vacía si no hay ninguna."
     )
     severidad: Literal["ninguna", "baja", "media", "alta", "incierta"]
-    confianza: float = Field(ge=0, le=1, description="Confianza en el diagnóstico, de 0 a 1.")
-    requiere_revision_humana: bool
-    nota_para_extensionista: str = Field(
-        description="Una o dos frases simples en español sobre lo que se ve y qué hacer."
-    )
 
 
 Estado = Literal[
@@ -112,9 +115,9 @@ def decide_estado(analysis: Analysis | None, min_confidence: float) -> Estado:
         return "revision_humana"
     if analysis.calidad_fotos == "no_sirve":
         return "repetir_fotos"
-    if analysis.requiere_revision_humana or analysis.confianza < min_confidence:
+    if analysis.confianza < min_confidence:
         return "revision_humana"
-    if analysis.senales_gusano:
+    if analysis.hay_plaga:
         return "reservorio_confirmado"
     if analysis.es_hospedero == "no":
         return "descartado"
@@ -127,7 +130,7 @@ def agrees_with_officer(label: str | None, analysis: Analysis | None) -> bool | 
     """Whether Claude agrees with the officer's label. None when there is nothing to compare."""
     if label in (None, "unsure") or analysis is None or analysis.calidad_fotos == "no_sirve":
         return None
-    return bool(analysis.senales_gusano) == (label == "armyworm")
+    return analysis.hay_plaga == (label == "armyworm")
 
 
 class AlertIn(_Wire):

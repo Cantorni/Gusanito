@@ -54,19 +54,28 @@ The PWA gets an acknowledgement as soon as the photo is stored and never sees Cl
 
 Only `id` and 1-3 `photos` are required. `label` is what the officer picked: `armyworm`, `not_armyworm` or `unsure`. The PWA generates `id` per photo, so a resend after a dropped connection is never stored twice.
 
-Report `estado`, set by the analysis:
+Claude's `analisis` answers yes or no and says how sure it is, with the evidence as structured fields (no free text):
+
+```json
+{"hay_plaga": true, "confianza": 0.85, "calidad_fotos": "buena", "tipo_vegetacion": "maiz",
+ "es_hospedero": "si", "senales_gusano": ["hojas_ventana"], "severidad": "media"}
+```
+
+`confianza` is how sure Claude is of its `hay_plaga` answer, yes or no: near 1 when it clearly sees the pest or clearly sees it is not there, near 0 when it cannot tell. It is self-reported and not calibrated: tune `MIN_CONFIDENCE` with agronomist-labelled photos.
+
+Report `estado`, set from the analysis:
 
 | `estado` | When |
 |---|---|
 | `pendiente` | Waiting for the analysis |
-| `reservorio_confirmado` | Claude sees fall armyworm signs |
-| `hospedero_sin_senales` | Host vegetation, no signs |
-| `descartado` | Not a host |
-| `revision_humana` | Confidence below `MIN_CONFIDENCE` (0.7), Claude asks for review, Claude declined, or host unclear |
+| `reservorio_confirmado` | `hay_plaga` is true |
+| `hospedero_sin_senales` | No pest, host vegetation |
+| `descartado` | No pest, not a host |
+| `revision_humana` | `confianza` below `MIN_CONFIDENCE` (0.7), Claude declined, or host unclear |
 | `repetir_fotos` | Photos are unusable |
 | `error_analisis` | The analysis failed 5 times, or failed with a non-retryable error |
 
-`agrees` compares Claude with the officer's label. The confidence is self-reported by the model and not calibrated: tune `MIN_CONFIDENCE` with agronomist-labelled photos.
+`agrees` compares `hay_plaga` with the officer's label.
 
 ### Reservoirs layer contract (satellite pipeline)
 

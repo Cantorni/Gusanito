@@ -57,8 +57,8 @@ class FakeAnalyzer:
         self.error = error
         self.calls = []
 
-    def analyze_report(self, photos, location, captured_at, notes):
-        self.calls.append((photos, location, captured_at, notes))
+    def analyze_report(self, photos, notes):
+        self.calls.append((photos, notes))
         if self.error:
             raise self.error
         return self.result
@@ -156,12 +156,11 @@ def test_queue_analysis_updates_report(repo, analyzer):
 
     report = repo.reports[REPORT_ID]
     assert report["estado"] == "reservorio_confirmado"
-    assert report["analisis"]["senales_gusano"] == ["hojas_ventana"]
+    assert report["analisis"]["hay_plaga"] is True and report["analisis"]["confianza"] == 0.8
     assert report["agrees"] is True  # officer said armyworm, Claude saw signs
     assert report["model"] == "claude-opus-5-5" and report["requestId"] == "req_123"
-    photos, location, captured_at, notes = analyzer.calls[0]
-    assert photos[0].data == PHOTO_BYTES and location["lat"] == -13.0333
-    assert captured_at.isoformat() == "2026-09-12T08:30:00+02:00" and notes == "Huerto con riego junto al río"
+    photos, notes = analyzer.calls[0]
+    assert photos[0].data == PHOTO_BYTES and notes == "Huerto con riego junto al río"
 
 
 def test_duplicate_queue_message_is_ignored(repo, analyzer):

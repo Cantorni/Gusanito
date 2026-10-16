@@ -1,18 +1,16 @@
 import base64
 from dataclasses import dataclass
-from datetime import datetime
 
 import anthropic
 
 from .models import MAX_SMS_CHARS, AlertIn, AlertMessage, Analysis
 
-# Spanish prompt: the analysis fields and the note for the officer are in Spanish.
+# Spanish prompt: the analysis fields are in Spanish.
 REPORT_PROMPT = """\
 Eres un asistente agronómico que revisa fotos de terreno para un sistema de alerta temprana del \
-gusano cogollero (Spodoptera frugiperda) en África subsahariana. Un extensionista agrícola tomó las \
-fotos en un parche de vegetación verde durante la estación seca, que podría ser un reservorio de la \
-plaga. Tu análisis decide si el parche es un reservorio activo, si es solo vegetación hospedera sin \
-plaga, o si se descarta.
+gusano cogollero (Spodoptera frugiperda). Un extensionista agrícola tomó las fotos en un parche de \
+vegetación verde durante la estación seca, que podría ser un reservorio de la plaga. Responde si las \
+fotos muestran gusano cogollero (hay_plaga: sí o no) y qué tan seguro estás de esa respuesta.
 
 Qué buscar:
 - Tipo de vegetación y si puede hospedar al gusano cogollero: maíz, sorgo y muchos pastos sí; árboles, \
@@ -23,10 +21,18 @@ huevos cubiertas de escamas.
 - Rasgos de la larva: una Y invertida clara en la cabeza y cuatro puntos oscuros en cuadrado sobre el \
 penúltimo segmento del cuerpo.
 
-Otros gusanos y barrenadores causan daños parecidos. Marca una señal solo si la ves en las fotos. Si un \
-daño podría ser de otra plaga, baja la confianza y pide revisión humana. Si las fotos están borrosas, \
-oscuras, muy lejos o no muestran plantas, marca la calidad como no_sirve. Escribe la nota para el \
-extensionista en español simple, sin jerga técnica."""
+Marca una señal solo si la ves en las fotos.
+
+La pregunta es solo sobre lo que muestran las fotos, no sobre el parche completo. La confianza mide qué \
+tan seguro estás de tu respuesta en hay_plaga, sea sí o no:
+- Ves claramente el gusano o su daño: hay_plaga sí, confianza cerca de 1.
+- Ves claramente que en las fotos no hay gusano, por ejemplo plantas sanas o una foto sin plantas: \
+hay_plaga no, confianza cerca de 1.
+- No puedes distinguirlo, por ejemplo un daño que podría ser de otros gusanos o barrenadores, o una foto \
+tan borrosa que no se ve nada: confianza cerca de 0.
+
+La calidad de las fotos se informa aparte: si están borrosas, oscuras, muy lejos o no muestran plantas, \
+marca calidad no_sirve, sin que eso cambie la confianza en lo que sí se ve."""
 
 ALERT_PROMPT = """\
 You write alerts for smallholder maize farmers about fall armyworm. Alerts come from a satellite map \
@@ -69,13 +75,9 @@ class Analyzer:
             return {}
         return {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
 
-    def analyze_report(
-        self,
-        photos: list[Photo],
-        location: dict | None,
-        captured_at: datetime | None,
-        notes: str | None,
-    ) -> AnalysisResult:
+    def analyze_report(self, photos: list[Photo], notes: str | None) -> AnalysisResult:
+        # Only what helps judge the photos: GPS and date stay in the report but are not sent, so the
+        # model does not second-guess a photo taken outside the area it expects.
         content: list[dict] = [
             {
                 "type": "image",
@@ -88,10 +90,6 @@ class Analyzer:
             for p in photos
         ]
         context = [f"Fotos: {len(photos)}."]
-        if location:
-            context.append(f"Ubicación: {location['lat']:.5f}, {location['lng']:.5f}.")
-        if captured_at:
-            context.append(f"Fecha de la foto: {captured_at.date().isoformat()}.")
         if notes:
             context.append(f"Notas del extensionista: {notes}")
         content.append({"type": "text", "text": "\n".join(context)})

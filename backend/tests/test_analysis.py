@@ -1,4 +1,3 @@
-from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -8,14 +7,13 @@ from gusanito.analysis import Analyzer, ModelResponseError, Photo
 from gusanito.models import AlertIn, AlertMessage, Analysis
 
 ANALYSIS = Analysis(
+    hay_plaga=True,
+    confianza=0.8,
     calidad_fotos="buena",
     tipo_vegetacion="maiz",
     es_hospedero="si",
     senales_gusano=["hojas_ventana"],
     severidad="media",
-    confianza=0.8,
-    requiere_revision_humana=False,
-    nota_para_extensionista="Daño reciente en el cogollo.",
 )
 
 
@@ -35,12 +33,7 @@ def response(parsed, stop_reason="end_turn", model="claude-opus-5-5"):
 
 
 def analyze(client, model="claude-opus-5-5"):
-    return Analyzer(client, model, "medium").analyze_report(
-        [Photo("image/jpeg", PHOTO_BYTES)],
-        {"lat": -13.0333, "lng": 33.4833, "accuracy": 8},
-        datetime.fromisoformat("2026-09-12T08:30:00+02:00"),
-        "Huerto con riego",
-    )
+    return Analyzer(client, model, "medium").analyze_report([Photo("image/jpeg", PHOTO_BYTES)], "Huerto con riego")
 
 
 def test_sends_images_schema_and_fallback():
@@ -56,12 +49,13 @@ def test_sends_images_schema_and_fallback():
     assert call["betas"] == ["server-side-fallback-2026-07-01"]
     content = call["messages"][0]["content"]
     assert content[0]["type"] == "image" and content[0]["source"]["media_type"] == "image/jpeg"
-    assert "-13.03330, 33.48330" in content[-1]["text"] and "2026-09-12" in content[-1]["text"]
+    # GPS and date are not sent: they do not help judge the photo and made the model second-guess it.
+    assert content[-1]["text"] == "Fotos: 1.\nNotas del extensionista: Huerto con riego"
 
 
-def test_works_without_location_or_date():
+def test_works_without_notes():
     client = FakeClient(response(ANALYSIS))
-    Analyzer(client, "claude-opus-5-5", "medium").analyze_report([Photo("image/png", PHOTO_BYTES)], None, None, None)
+    Analyzer(client, "claude-opus-5-5", "medium").analyze_report([Photo("image/png", PHOTO_BYTES)], None)
     assert client.calls[0]["messages"][0]["content"][-1]["text"] == "Fotos: 1."
 
 

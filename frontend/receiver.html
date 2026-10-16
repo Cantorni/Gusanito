@@ -59,23 +59,27 @@ const place = p => p ? `<a target="_blank" rel="noopener" href="https://www.open
 
 function row(x) {
   const a = x.analisis;
-  const rows = [
+  const rows = [];
+  // Claude's answer first: yes/no and how sure it is of that answer (reports analysed before
+  // hay_plaga existed have no answer to show).
+  if (a && typeof a.hay_plaga === 'boolean') rows.push(
+    ['¿Hay plaga? (Claude)', `<strong>${a.hay_plaga ? 'Sí' : 'No'}</strong>`],
+    ['Seguridad de Claude', Math.round(a.confianza * 100) + '%']);
+  rows.push(
     ['Dijo el extensionista', x.label ? esc(LABEL[x.label]) : '—'],
     ['Concuerda con Claude', x.agrees === null ? '—' : x.agrees ? 'Sí' : '<span class="bad">No</span>'],
     ['Parche', x.reservoirId ? esc(x.reservoirId) : '—'],
-    ['Ubicación GPS', place(x.location)],
-  ];
+    ['Ubicación GPS', place(x.location)]);
   if (a) rows.push(
     ['Fotos', esc(a.calidad_fotos)], ['Vegetación', `${esc(a.tipo_vegetacion)}${HOSPEDERO[a.es_hospedero] || ''}`],
     ['Señales', a.senales_gusano.length ? esc(a.senales_gusano.join(', ')) : 'ninguna'],
-    ['Severidad', esc(a.severidad)], ['Confianza', Math.round(a.confianza * 100) + '%']);
+    ['Severidad', esc(a.severidad)]);
   else if (x.refused) rows.push(['Análisis', 'Claude no analizó la foto']);
   else if (x.analysisError) rows.push(['Análisis', `falló (${esc(x.analysisError)})`]);
   return `<article class="report">
     <img alt="Foto del reporte" data-report="${esc(x.id)}"${photoUrls.has(x.id) ? ` src="${photoUrls.get(x.id)}"` : ''}>
     <div>
       <span class="estado ${esc(x.estado)}">${esc(ESTADO[x.estado] || x.estado)}</span>
-      ${a ? `<p class="nota">${esc(a.nota_para_extensionista)}</p>` : ''}
       <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
       <p class="nota" style="color:var(--muted);font-size:.85rem">${esc(new Date(x.receivedAt).toLocaleString())}</p>
     </div></article>`;

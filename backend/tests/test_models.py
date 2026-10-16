@@ -9,14 +9,13 @@ from gusanito.models import MAX_PHOTO_BYTES, Analysis, ReportIn, agrees_with_off
 
 def analysis(**changes) -> Analysis:
     data = {
+        "hay_plaga": False,
+        "confianza": 0.9,
         "calidad_fotos": "buena",
         "tipo_vegetacion": "maiz",
         "es_hospedero": "si",
         "senales_gusano": [],
         "severidad": "ninguna",
-        "confianza": 0.9,
-        "requiere_revision_humana": False,
-        "nota_para_extensionista": "Maíz sano.",
     }
     data.update(changes)
     return Analysis(**data)
@@ -26,9 +25,10 @@ def analysis(**changes) -> Analysis:
     ("changes", "expected"),
     [
         ({"calidad_fotos": "no_sirve", "confianza": 0.95}, "repetir_fotos"),
-        ({"confianza": 0.5, "senales_gusano": ["larva_visible"]}, "revision_humana"),
-        ({"requiere_revision_humana": True, "senales_gusano": ["hojas_ventana"]}, "revision_humana"),
-        ({"senales_gusano": ["hojas_ventana", "excremento_en_cogollo"]}, "reservorio_confirmado"),
+        ({"hay_plaga": True, "confianza": 0.5, "senales_gusano": ["larva_visible"]}, "revision_humana"),
+        ({"hay_plaga": True, "senales_gusano": ["hojas_ventana", "excremento_en_cogollo"]}, "reservorio_confirmado"),
+        # Sure there is no pest: high confidence, not low.
+        ({"hay_plaga": False, "confianza": 0.95}, "hospedero_sin_senales"),
         ({"tipo_vegetacion": "arboles_o_arbustos", "es_hospedero": "no"}, "descartado"),
         ({}, "hospedero_sin_senales"),
         ({"es_hospedero": "incierto"}, "revision_humana"),
@@ -45,12 +45,12 @@ def test_no_analysis_goes_to_human_review():
 @pytest.mark.parametrize(
     ("label", "changes", "expected"),
     [
-        ("armyworm", {"senales_gusano": ["hojas_ventana"]}, True),
-        ("armyworm", {}, False),
-        ("not_armyworm", {}, True),
-        ("not_armyworm", {"senales_gusano": ["larva_visible"]}, False),
+        ("armyworm", {"hay_plaga": True}, True),
+        ("armyworm", {"hay_plaga": False}, False),
+        ("not_armyworm", {"hay_plaga": False}, True),
+        ("not_armyworm", {"hay_plaga": True}, False),
         (None, {}, None),
-        ("unsure", {"senales_gusano": ["hojas_ventana"]}, None),
+        ("unsure", {"hay_plaga": True}, None),
         ("armyworm", {"calidad_fotos": "no_sirve"}, None),
     ],
 )

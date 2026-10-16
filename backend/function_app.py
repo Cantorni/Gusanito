@@ -219,8 +219,7 @@ def analyze_report(msg: func.QueueMessage) -> None:
         photos.append(Photo(media_type=found[1], data=found[0]))
 
     try:
-        captured_at = datetime.fromisoformat(report["capturedAt"]) if report["capturedAt"] else None
-        result = _analyzer().analyze_report(photos, report["location"], captured_at, report["notes"])
+        result = _analyzer().analyze_report(photos, report["notes"])
     except (anthropic.APIError, ModelResponseError, config.ConfigError) as e:
         last_try = (msg.dequeue_count or 1) >= MAX_DEQUEUE_COUNT
         if _retryable(e) and not last_try:
