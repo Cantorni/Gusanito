@@ -1,24 +1,24 @@
-// Local/shareable server: serves the PWA and runs the Azure Functions handlers in api/.
-// Run: node server.js   (reads .env; no npm install needed beyond api/ deps)
+// Local/shareable dev server: serves ../frontend and runs the Azure Functions handlers in this folder.
+// Run from backend/: pnpm install && node server.js   (reads backend/.env)
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-for (const line of (fs.existsSync('.env') ? fs.readFileSync('.env', 'utf8') : '').split('\n')) {
+for (const line of (fs.existsSync(path.join(__dirname, '.env')) ? fs.readFileSync(path.join(__dirname, '.env'), 'utf8') : '').split('\n')) {
   const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
   if (m && m[2] && !(m[1] in process.env)) process.env[m[1]] = m[2];
 }
 
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..', 'frontend');
 const STATIC = {
   '/': 'index.html', '/index.html': 'index.html', '/receiver.html': 'receiver.html', '/sw.js': 'sw.js',
   '/manifest.json': 'manifest.json', '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png',
 };
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.css': 'text/css', '.woff2': 'font/woff2' };
 const ROUTES = {
-  '/api/maps-token': require('./api/maps-token'),
-  '/api/analyze-point': require('./api/analyze-point'),
-  '/api/report': require('./api/report'),
+  '/api/maps-token': require('./maps-token'),
+  '/api/analyze-point': require('./analyze-point'),
+  '/api/report': require('./report'),
 };
 const MAX_BODY = 9_000_000;
 
