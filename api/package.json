@@ -5,5 +5,7 @@
   "scripts": {
     "start": "func start"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0"
+  }
 }

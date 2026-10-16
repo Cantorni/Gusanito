@@ -2,3 +2,5 @@ node_modules/
 api/local.settings.json
 .env
 *.local
+data/
+zambia.pmtiles

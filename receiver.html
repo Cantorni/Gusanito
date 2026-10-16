@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gusanito – Reportes recibidos</title>
+<style>
+  @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-display: swap; src: url(vendor/fonts/atkinson-400.woff2) format("woff2"); }
+  @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; font-display: swap; src: url(vendor/fonts/atkinson-700.woff2) format("woff2"); }
+  :root { --ash: #e6e4dd; --paper: #f4f3ee; --coal: #1b1d19; --straw: #a89a6a; --rule: #c2bfb2; --reservoir: #17893f; --reservoir-ink: #0e5a29; --ember: #c93a14; --muted: #5b5d52; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Atkinson Hyperlegible", system-ui, sans-serif; background: var(--ash); color: var(--coal); line-height: 1.4; }
+  :focus-visible { outline: 3px solid var(--coal); outline-offset: 2px; }
+  header { background: var(--coal); color: var(--paper); padding: 12px 16px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 1.15rem; }
+  header span { color: var(--straw); }
+  header a { margin-left: auto; color: var(--paper); font-weight: 700; }
+  main { padding: 16px; max-width: 980px; margin: 0 auto; }
+  #empty { padding: 40px 0; color: var(--muted); }
+  .report { display: grid; grid-template-columns: 112px 1fr; gap: 14px; padding: 14px 0; border-bottom: 1.5px solid var(--rule); }
+  .report img { width: 112px; height: 112px; object-fit: cover; border-radius: 10px; border: 1.5px solid var(--rule); background: var(--paper); }
+  .estado { display: inline-block; font-weight: 700; padding: 2px 10px; border-radius: 99px; border: 2px solid var(--coal); margin-bottom: 6px; }
+  .estado.reservorio_confirmado { background: var(--reservoir); border-color: var(--reservoir-ink); color: #fff; }
+  .estado.revision_humana { background: var(--straw); }
+  .estado.pendiente { border-style: dashed; }
+  .nota { margin: 4px 0 8px; max-width: 68ch; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; font-size: .92rem; }
+  dt { color: var(--muted); }
+  .bad { color: var(--ember); font-weight: 700; }
+  a { color: var(--reservoir-ink); }
+  @media (max-width: 520px) { .report { grid-template-columns: 1fr; } .report img { width: 100%; height: 200px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Reportes recibidos</h1><span id="count"></span>
+  <a id="dl" download="reportes.json" href="#">Descargar JSON</a>
+</header>
+<main id="list"><p id="empty">Cargando…</p></main>
+<script>
+let token = new URLSearchParams(location.search).get('token');
+try { token = token || localStorage.getItem('rt'); } catch (_) {}
+if (!token) token = prompt('Token del receptor (REPORT_TOKEN)') || '';
+try { localStorage.setItem('rt', token); } catch (_) {}
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ESTADO = { reservorio_confirmado: 'Reservorio confirmado', descartado: 'Descartado', revision_humana: 'Revisión humana', pendiente: 'Análisis pendiente' };
+const LABEL = { armyworm: 'Hay gusano', not_armyworm: 'No hay gusano' };
+const place = p => p ? `<a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=16/${p.lat}/${p.lng}">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</a>${p.accuracy ? ` (±${Math.round(p.accuracy)} m)` : ''}` : '—';
+
+function row(x) {
+  const a = x.analisis || {};
+  const ok = a.status === 'ok';
+  const rows = [
+    ['Dijo el extensionista', esc(LABEL[x.label])],
+    ['Concuerda con Claude', x.concuerda === null ? '—' : x.concuerda ? 'Sí' : '<span class="bad">No</span>'],
+    ['Ubicación GPS', place(x.location)],
+  ];
+  if (ok) rows.push(
+    ['Foto', esc(a.calidad_foto)], ['Vegetación', `${esc(a.tipo_vegetacion)}${a.es_hospedero ? ' (hospedero)' : ''}`],
+    ['Señales', a.senales_gusano.length ? esc(a.senales_gusano.join(', ')) : 'ninguna'],
+    ['Larva visible', a.larva_visible ? 'Sí' : 'No'], ['Severidad', esc(a.severidad)],
+    ['Confianza', Math.round(a.confianza * 100) + '%']);
+  else rows.push(['Análisis', esc(a.status) + (a.reason ? ` (${esc(a.reason)})` : '')]);
+  return `<article class="report">
+    <img alt="Foto del reporte" src="/api/report?image=${encodeURIComponent(x.image.file)}&token=${encodeURIComponent(token)}">
+    <div>
+      <span class="estado ${esc(x.estado)}">${esc(ESTADO[x.estado] || x.estado)}</span>
+      ${ok ? `<p class="nota">${esc(a.nota_para_felix)}</p>` : ''}
+      <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+      <p class="nota" style="color:var(--muted);font-size:.85rem">${esc(new Date(x.receivedAt).toLocaleString())}</p>
+    </div></article>`;
+}
+
+async function load() {
+  const r = await fetch('/api/report?token=' + encodeURIComponent(token));
+  const list = document.getElementById('list');
+  if (!r.ok) { list.innerHTML = '<p id="empty">Token inválido. Revisa REPORT_TOKEN en .env y recarga.</p>'; return; }
+  const rows = await r.json();
+  document.getElementById('count').textContent = `${rows.length} en total`;
+  document.getElementById('dl').href = 'data:application/json,' + encodeURIComponent(JSON.stringify(rows, null, 2));
+  list.innerHTML = rows.length ? rows.map(row).join('') : '<p id="empty">Todavía no hay reportes. Envía una foto desde la app.</p>';
+}
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>
