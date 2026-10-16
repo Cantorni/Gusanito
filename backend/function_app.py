@@ -80,7 +80,8 @@ def _check_token(req: func.HttpRequest) -> func.HttpResponse | None:
     expected = _config().report_token
     if not expected:
         return _error(503, "REPORT_TOKEN not configured")
-    given = req.headers.get("x-report-token") or req.params.get("token") or ""
+    # Header only: a token in the query string would end up in request logs and telemetry.
+    given = req.headers.get("x-report-token") or ""
     if not hmac.compare_digest(given.encode(), expected.encode()):
         return _error(401, "bad token")
     return None

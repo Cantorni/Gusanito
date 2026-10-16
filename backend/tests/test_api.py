@@ -221,9 +221,10 @@ def test_reading_reports_needs_the_token(repo, analyzer):
 
     status, reports, _ = call(function_app.list_reports, headers=AUTH)
     assert status == 200 and [r["id"] for r in reports] == [REPORT_ID]
-    # img tags cannot send headers, so the token also works as a query parameter
-    assert call(function_app.list_reports, params={"token": TOKEN, "reservoirId": "kasungu-0042"})[0] == 200
+    assert call(function_app.list_reports, params={"reservoirId": "kasungu-0042"}, headers=AUTH)[0] == 200
     assert call(function_app.list_reports, params={"reservoirId": "a'b"}, headers=AUTH)[0] == 400
+    # The token is never read from the query string, where it would land in logs.
+    assert call(function_app.list_reports, params={"token": TOKEN})[0] == 401
 
 
 def test_token_not_configured(repo, monkeypatch):
@@ -237,7 +238,7 @@ def test_get_report_and_photo(repo, analyzer):
     assert call(function_app.get_report, route_params={"id": "nope"}, headers=AUTH)[0] == 400
     assert call(function_app.get_report, route_params={"id": "11111111-1111-1111-1111-111111111111"}, headers=AUTH)[0] == 404
 
-    req = func.HttpRequest(method="GET", url="/api/x", body=b"", route_params={"id": REPORT_ID, "index": "0"}, params={"token": TOKEN})
+    req = func.HttpRequest(method="GET", url="/api/x", body=b"", route_params={"id": REPORT_ID, "index": "0"}, headers=AUTH)
     res = function_app.get_photo.build().get_user_function()(req)
     assert res.status_code == 200 and res.get_body() == PHOTO_BYTES and res.mimetype == "image/jpeg"
     assert call(function_app.get_photo, route_params={"id": REPORT_ID, "index": "3"}, headers=AUTH)[0] == 404

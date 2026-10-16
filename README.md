@@ -36,7 +36,7 @@ The PWA gets an acknowledgement as soon as the photo is stored and never sees Cl
 | GET | `/api/reports/{id}/photos/{n}` | token | A report photo |
 | POST | `/api/alerts/message` | token | Drafts the SMS and voice script of an alert (`riskLevel`, `distanceKm`, `direction`, `daysToAct`, `language`: es/en/ny) |
 
-"token" is `REPORT_TOKEN`, sent as the `x-report-token` header or a `token` query parameter (image tags cannot send headers).
+"token" is `REPORT_TOKEN`, sent as the `x-report-token` header only, never in the URL, where it would land in request logs. The receiver page fetches photos with the header and shows them as blob URLs.
 
 `POST /api/reports` body (camelCase, like the rest of the PWA's JSON):
 
