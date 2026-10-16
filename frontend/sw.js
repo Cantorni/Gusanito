@@ -1,9 +1,9 @@
 // Gusanito Service Worker: offline app shell + offline Zambia vector map (PMTiles)
-const CACHE = 'gusanito-v8';
+const CACHE = 'gusanito-v9';
 const MAP_URL = '/zambia.pmtiles';
 const APP_SHELL = [
   '/vendor/fonts/atkinson-400.woff2', '/vendor/fonts/atkinson-700.woff2',
-  '/', '/index.html', '/manifest.json',
+  '/', '/index.html', '/config.js', '/manifest.json',
   '/vendor/leaflet.css', '/vendor/leaflet.js', '/vendor/protomaps-leaflet.js',
   '/vendor/images/marker-icon.png', '/vendor/images/marker-icon-2x.png', '/vendor/images/marker-shadow.png',
   '/vendor/images/layers.png', '/vendor/images/layers-2x.png',
@@ -35,7 +35,7 @@ async function ensureMap() {
   if (await cache.match(MAP_URL)) return broadcast({ type: 'CACHE_READY' });
   try {
     const res = await fetch(MAP_URL);
-    if (!res.ok) return;
+    if (!res.ok) return broadcast({ type: 'CACHE_UNAVAILABLE' }); // map file not deployed
     const total = +res.headers.get('content-length') || 0;
     const reader = res.body.getReader();
     const parts = [];
@@ -48,7 +48,9 @@ async function ensureMap() {
     }
     await cache.put(MAP_URL, new Response(new Blob(parts), { headers: { 'Content-Type': 'application/octet-stream' } }));
     broadcast({ type: 'CACHE_READY' });
-  } catch (_) { /* offline or interrupted: retried on next load */ }
+  } catch (_) {
+    broadcast({ type: 'CACHE_RETRY' }); // offline or interrupted: retried on next load
+  }
 }
 
 // PMTiles reads the file with HTTP Range requests; Cache API has no ranges, so slice the cached blob.

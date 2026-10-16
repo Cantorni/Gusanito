@@ -1,0 +1,6 @@
+azure-functions~=2.3
+anthropic~=1.15
+azure-storage-blob~=12.31
+azure-data-tables~=12.7
+azure-identity~=1.26
+pydantic~=2.14

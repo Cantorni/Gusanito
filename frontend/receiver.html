@@ -21,8 +21,9 @@
   .report img { width: 112px; height: 112px; object-fit: cover; border-radius: 10px; border: 1.5px solid var(--rule); background: var(--paper); }
   .estado { display: inline-block; font-weight: 700; padding: 2px 10px; border-radius: 99px; border: 2px solid var(--coal); margin-bottom: 6px; }
   .estado.reservorio_confirmado { background: var(--reservoir); border-color: var(--reservoir-ink); color: #fff; }
-  .estado.revision_humana { background: var(--straw); }
+  .estado.revision_humana, .estado.repetir_fotos { background: var(--straw); }
   .estado.pendiente { border-style: dashed; }
+  .estado.error_analisis { border-color: var(--ember); color: var(--ember); }
   .nota { margin: 4px 0 8px; max-width: 68ch; }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; font-size: .92rem; }
   dt { color: var(--muted); }
@@ -37,49 +38,71 @@
   <a id="dl" download="reportes.json" href="#">Descargar JSON</a>
 </header>
 <main id="list"><p id="empty">Cargando…</p></main>
+<script src="config.js"></script>
 <script>
+const API = window.GUSANITO.apiBase;
 let token = new URLSearchParams(location.search).get('token');
 try { token = token || localStorage.getItem('rt'); } catch (_) {}
 if (!token) token = prompt('Token del receptor (REPORT_TOKEN)') || '';
 try { localStorage.setItem('rt', token); } catch (_) {}
+// Keep the token out of the address bar, history and any shared link.
+if (location.search) history.replaceState(null, '', location.pathname);
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const ESTADO = { reservorio_confirmado: 'Reservorio confirmado', descartado: 'Descartado', revision_humana: 'Revisión humana', pendiente: 'Análisis pendiente' };
+const ESTADO = {
+  pendiente: 'Análisis pendiente', reservorio_confirmado: 'Reservorio confirmado', hospedero_sin_senales: 'Hospedero sin señales',
+  descartado: 'Descartado', revision_humana: 'Revisión humana', repetir_fotos: 'Repetir fotos', error_analisis: 'Error de análisis',
+};
 const LABEL = { armyworm: 'Hay gusano', not_armyworm: 'No hay gusano' };
+const HOSPEDERO = { si: ' (hospedero)', no: ' (no hospedero)', incierto: ' (hospedero incierto)' };
 const place = p => p ? `<a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=16/${p.lat}/${p.lng}">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</a>${p.accuracy ? ` (±${Math.round(p.accuracy)} m)` : ''}` : '—';
 
 function row(x) {
-  const a = x.analisis || {};
-  const ok = a.status === 'ok';
+  const a = x.analisis;
   const rows = [
-    ['Dijo el extensionista', esc(LABEL[x.label])],
-    ['Concuerda con Claude', x.concuerda === null ? '—' : x.concuerda ? 'Sí' : '<span class="bad">No</span>'],
+    ['Dijo el extensionista', x.label ? esc(LABEL[x.label]) : '—'],
+    ['Concuerda con Claude', x.agrees === null ? '—' : x.agrees ? 'Sí' : '<span class="bad">No</span>'],
+    ['Parche', x.reservoirId ? esc(x.reservoirId) : '—'],
     ['Ubicación GPS', place(x.location)],
   ];
-  if (ok) rows.push(
-    ['Foto', esc(a.calidad_foto)], ['Vegetación', `${esc(a.tipo_vegetacion)}${a.es_hospedero ? ' (hospedero)' : ''}`],
+  if (a) rows.push(
+    ['Fotos', esc(a.calidad_fotos)], ['Vegetación', `${esc(a.tipo_vegetacion)}${HOSPEDERO[a.es_hospedero] || ''}`],
     ['Señales', a.senales_gusano.length ? esc(a.senales_gusano.join(', ')) : 'ninguna'],
-    ['Larva visible', a.larva_visible ? 'Sí' : 'No'], ['Severidad', esc(a.severidad)],
-    ['Confianza', Math.round(a.confianza * 100) + '%']);
-  else rows.push(['Análisis', esc(a.status) + (a.reason ? ` (${esc(a.reason)})` : '')]);
+    ['Severidad', esc(a.severidad)], ['Confianza', Math.round(a.confianza * 100) + '%']);
+  else if (x.refused) rows.push(['Análisis', 'Claude no analizó la foto']);
+  else if (x.analysisError) rows.push(['Análisis', `falló (${esc(x.analysisError)})`]);
   return `<article class="report">
-    <img alt="Foto del reporte" src="/api/report?image=${encodeURIComponent(x.image.file)}&token=${encodeURIComponent(token)}">
+    <img alt="Foto del reporte" data-report="${esc(x.id)}"${photoUrls.has(x.id) ? ` src="${photoUrls.get(x.id)}"` : ''}>
     <div>
       <span class="estado ${esc(x.estado)}">${esc(ESTADO[x.estado] || x.estado)}</span>
-      ${ok ? `<p class="nota">${esc(a.nota_para_felix)}</p>` : ''}
+      ${a ? `<p class="nota">${esc(a.nota_para_extensionista)}</p>` : ''}
       <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
       <p class="nota" style="color:var(--muted);font-size:.85rem">${esc(new Date(x.receivedAt).toLocaleString())}</p>
     </div></article>`;
 }
 
 async function load() {
-  const r = await fetch('/api/report?token=' + encodeURIComponent(token));
+  const r = await fetch(`${API}/reports`, { headers: { 'x-report-token': token } });
   const list = document.getElementById('list');
-  if (!r.ok) { list.innerHTML = '<p id="empty">Token inválido. Revisa REPORT_TOKEN en .env y recarga.</p>'; return; }
+  if (!r.ok) { list.innerHTML = '<p id="empty">Token inválido. Revisa REPORT_TOKEN y recarga.</p>'; return; }
   const rows = await r.json();
   document.getElementById('count').textContent = `${rows.length} en total`;
   document.getElementById('dl').href = 'data:application/json,' + encodeURIComponent(JSON.stringify(rows, null, 2));
   list.innerHTML = rows.length ? rows.map(row).join('') : '<p id="empty">Todavía no hay reportes. Envía una foto desde la app.</p>';
+  list.querySelectorAll('img[data-report]:not([src])').forEach(loadPhoto);
+}
+
+// Photos need the token header, which an <img src> cannot send: fetch them and show blob URLs.
+// Each photo is fetched once; the 15 s refresh reuses the URL.
+const photoUrls = new Map();
+async function loadPhoto(img) {
+  const id = img.dataset.report;
+  try {
+    const r = await fetch(`${API}/reports/${encodeURIComponent(id)}/photos/0`, { headers: { 'x-report-token': token } });
+    if (!r.ok) return;
+    photoUrls.set(id, URL.createObjectURL(await r.blob()));
+    document.querySelectorAll(`img[data-report="${CSS.escape(id)}"]`).forEach(el => (el.src = photoUrls.get(id)));
+  } catch (_) { /* offline: retried on the next refresh */ }
 }
 load();
 setInterval(load, 15000);

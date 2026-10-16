@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="vendor/leaflet.css" />
   <script src="vendor/leaflet.js"></script>
   <script src="vendor/protomaps-leaflet.js"></script>
+  <script src="config.js"></script>
   <style>
     /* Daylight-first: the landscape is dry (ash, straw), so the one living colour is the green of a reservoir. */
     @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-display: swap; src: url(vendor/fonts/atkinson-400.woff2) format("woff2"); }
@@ -48,6 +49,9 @@
     #sheet { position: absolute; z-index: 1100; left: 0; right: 0; bottom: 0; background: var(--ash); border-top: 2px solid var(--coal); padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); max-width: 640px; margin: 0 auto; }
     #info-bar { font-size: 1rem; margin-bottom: 12px; min-height: 1.4em; }
     #info-bar .hi { font-weight: 700; color: var(--reservoir-ink); font-variant-numeric: tabular-nums; }
+    #target { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 8px 8px 8px 12px; border: 2px solid var(--reservoir-ink); border-radius: var(--radius); background: var(--paper); }
+    #target strong { color: var(--reservoir-ink); }
+    #target .btn { min-height: 44px; padding: 0 12px; border-color: transparent; font-weight: 400; text-decoration: underline; }
 
     .btn { min-height: var(--tap); border-radius: var(--radius); border: 2px solid var(--coal); background: transparent; font-weight: 700; padding: 0 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
     .btn:active { transform: translateY(1px); }
@@ -90,6 +94,10 @@
 
 <section id="sheet" aria-label="Controles">
   <p id="info-bar" aria-live="polite">Buscando tu ubicación…</p>
+  <div id="target" role="status" hidden>
+    <span id="target-text"></span>
+    <button id="target-clear" class="btn" type="button">Quitar</button>
+  </div>
   <div class="actions">
     <button id="btn-photo" class="btn primary" type="button">Tomar foto del parche</button>
     <button id="btn-locate" class="btn" type="button" hidden>Activar ubicación</button>
@@ -140,6 +148,66 @@ map.attributionControl.setPosition('topleft');
 // maxDataZoom 12: tiles are overzoomed beyond that (shortcut: extract is z0-12, regenerate for more detail)
 protomapsL.leafletLayer({ url: '/zambia.pmtiles', flavor: 'grayscale', lang: 'es', maxDataZoom: 12 }).addTo(map);
 const overlay = L.layerGroup().addTo(map);
+
+// ---- RESERVOIRS: probable dry-season reservoirs from the satellite model ----
+// Tapping one makes the next photo a report about that patch.
+const API = window.GUSANITO.apiBase;
+const RESERVOIR_MIN_ZOOM = 9;
+const RESERVOIR_STYLE = { color: '#0e5a29', weight: 2, fillColor: '#17893f', fillOpacity: 0.3 };
+const SELECTED_STYLE = { color: '#1b1d19', weight: 4, fillColor: '#17893f', fillOpacity: 0.55 };
+let selected = null; // { id, layer }
+let reservoirRequest = null, reservoirTimer = null;
+
+map.createPane('reservoirs').style.zIndex = 350; // under the overlay pane, so the user's dot stays on top
+
+const reservoirLayer = L.geoJSON(null, {
+  pane: 'reservoirs',
+  bubblingMouseEvents: false, // a tap on a patch must not reach the map (which clears the selection)
+  style: () => RESERVOIR_STYLE,
+  pointToLayer: (f, latlng) => L.circleMarker(latlng, { ...RESERVOIR_STYLE, radius: 12, pane: 'reservoirs', bubblingMouseEvents: false }),
+  onEachFeature: (f, layer) => layer.on('click', () => selectReservoir(f, layer)),
+}).addTo(map);
+
+function selectReservoir(feature, layer) {
+  if (selected) selected.layer.setStyle(RESERVOIR_STYLE);
+  selected = { id: String(feature.id), layer };
+  layer.setStyle(SELECTED_STYLE);
+  const p = feature.properties || {};
+  const prob = Number.isFinite(p.probabilidad) ? ` · probabilidad ${Math.round(p.probabilidad * 100)}%` : '';
+  document.getElementById('target-text').innerHTML = `Parche <strong>${escapeHtml(selected.id)}</strong>${prob}`;
+  document.getElementById('target').hidden = false;
+  document.getElementById('btn-photo').textContent = 'Tomar foto de este parche';
+}
+
+function clearReservoir() {
+  if (selected) selected.layer.setStyle(RESERVOIR_STYLE);
+  selected = null;
+  document.getElementById('target').hidden = true;
+  document.getElementById('btn-photo').textContent = 'Tomar foto del parche';
+}
+document.getElementById('target-clear').addEventListener('click', clearReservoir);
+map.on('click', clearReservoir);
+
+async function loadReservoirs() {
+  if (!navigator.onLine || map.getZoom() < RESERVOIR_MIN_ZOOM) return; // offline: keep what is drawn
+  const b = map.getBounds();
+  const clamp = (v, lim) => Math.max(-lim, Math.min(lim, v));
+  const bbox = [clamp(b.getWest(), 180), clamp(b.getSouth(), 90), clamp(b.getEast(), 180), clamp(b.getNorth(), 90)].map(v => v.toFixed(5)).join(',');
+  if (reservoirRequest) reservoirRequest.abort();
+  reservoirRequest = new AbortController();
+  try {
+    const r = await fetch(`${API}/reservoirs?bbox=${bbox}`, { signal: reservoirRequest.signal });
+    if (!r.ok) return; // 404: the satellite pipeline has not published a layer yet
+    const layer = await r.json();
+    const keep = selected && layer.features.find(f => String(f.id) === selected.id);
+    reservoirLayer.clearLayers();
+    reservoirLayer.addData(layer);
+    if (keep) reservoirLayer.eachLayer(l => { if (String(l.feature.id) === selected.id) selectReservoir(l.feature, l); });
+    else if (selected) clearReservoir();
+  } catch (_) { /* aborted or network error: keep the current layer */ }
+}
+map.on('moveend', () => { clearTimeout(reservoirTimer); reservoirTimer = setTimeout(loadReservoirs, 400); });
+window.addEventListener('online', loadReservoirs);
 
 // ---- LOCATION: automatic, the user never types coordinates ----
 const locateBtn = document.getElementById('btn-locate');
@@ -196,9 +264,13 @@ document.getElementById('ask-close').addEventListener('click', closeAsk);
 document.getElementById('ask-cancel').addEventListener('click', closeAsk);
 ask.addEventListener('cancel', () => { fileIn.value = ''; }); // Esc / back button
 
+// One id per photo: a retry after a dropped connection resends the same report, never a duplicate.
+let reportId = null;
+
 fileIn.addEventListener('change', () => {
   const f = fileIn.files[0];
   if (!f) return;
+  reportId = crypto.randomUUID();
   document.getElementById('photo-preview').src = URL.createObjectURL(f);
   askMsg.className = ''; askMsg.textContent = '';
   choiceBtns.forEach(b => (b.disabled = false));
@@ -207,13 +279,14 @@ fileIn.addEventListener('change', () => {
 });
 
 // Downscale to <=1280px JPEG: smaller upload on weak networks (also drops EXIF).
-async function toJpegDataUrl(file) {
+async function toJpeg(file) {
   const bmp = await createImageBitmap(file);
   const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
   const c = document.createElement('canvas');
   c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
   c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-  return { url: c.toDataURL('image/jpeg', 0.82), width: bmp.width, height: bmp.height };
+  const data = c.toDataURL('image/jpeg', 0.82).split(',')[1]; // plain base64, no data: prefix
+  return { data, width: bmp.width, height: bmp.height };
 }
 
 function getGps() {
@@ -234,12 +307,17 @@ choiceBtns.forEach(btn => btn.addEventListener('click', async () => {
   choiceBtns.forEach(b => (b.disabled = true));
   askMsg.className = ''; askMsg.textContent = 'Enviando foto…';
   try {
-    const [img, location] = await Promise.all([toJpegDataUrl(f), userPos ? { ...userPos } : getGps()]);
+    const [img, location] = await Promise.all([toJpeg(f), userPos ? { ...userPos } : getGps()]);
     const body = {
-      image: img.url, label: btn.dataset.label, location,
-      meta: { name: f.name, originalSize: f.size, width: img.width, height: img.height, capturedAt: new Date(f.lastModified).toISOString() },
+      id: reportId,
+      reservoirId: selected ? selected.id : null,
+      label: btn.dataset.label,
+      location,
+      capturedAt: new Date(f.lastModified).toISOString(),
+      photos: [{ mediaType: 'image/jpeg', data: img.data }],
+      meta: { name: f.name.slice(0, 120), originalSize: f.size, width: img.width, height: img.height },
     };
-    const r = await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetch(`${API}/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.status);
     document.getElementById('ask-done-text').textContent = location
@@ -254,6 +332,7 @@ choiceBtns.forEach(btn => btn.addEventListener('click', async () => {
 
 // ---- HELPERS ----
 function setInfo(html) { document.getElementById('info-bar').innerHTML = html; }
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 // ---- SERVICE WORKER ----
 if ('serviceWorker' in navigator) {
@@ -271,6 +350,8 @@ if ('serviceWorker' in navigator) {
         label.textContent = `Descargando mapa sin conexión: ${pct}%`;
       }
       if (e.data.type === 'CACHE_READY') ready();
+      if (e.data.type === 'CACHE_UNAVAILABLE') bar.style.display = 'none';
+      if (e.data.type === 'CACHE_RETRY') label.textContent = 'El mapa sin conexión se descargará cuando haya señal';
     });
 
     // Ask the SW to download the offline map once it is active (no-op if already cached)
