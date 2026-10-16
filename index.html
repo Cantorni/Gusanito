@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gusanito – Zambia</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1a7f4b" />
+  <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css" />
+  <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1117; color: #e0e0e0; display: flex; flex-direction: column; height: 100dvh; }
+
+    header { background: #1a7f4b; padding: 12px 16px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .5px; }
+    #offline-badge { margin-left: auto; background: rgba(0,0,0,.3); font-size: .7rem; padding: 3px 8px; border-radius: 10px; display: none; }
+    body.is-offline #offline-badge { display: block; }
+
+    #input-panel { padding: 12px 16px; background: #181c24; border-bottom: 1px solid #2a2f3a; display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+    #input-panel label { font-size: .75rem; color: #8a9ab5; display: flex; flex-direction: column; gap: 4px; flex: 1 1 120px; }
+    #input-panel input { background: #252b38; border: 1px solid #3a4050; border-radius: 6px; color: #e0e0e0; padding: 7px 10px; font-size: .9rem; width: 100%; }
+    #input-panel input:focus { outline: none; border-color: #1a7f4b; }
+    #btn-go { background: #1a7f4b; color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-size: .9rem; font-weight: 600; cursor: pointer; flex-shrink: 0; transition: background .2s; }
+    #btn-go:hover { background: #22a860; }
+    #btn-locate { background: #252b38; color: #8a9ab5; border: 1px solid #3a4050; border-radius: 6px; padding: 8px 12px; font-size: .85rem; cursor: pointer; flex-shrink: 0; }
+    #btn-locate:hover { background: #2e3547; }
+
+    #info-bar { padding: 8px 16px; background: #12151d; font-size: .82rem; color: #8a9ab5; min-height: 32px; display: flex; align-items: center; gap: 6px; }
+    #info-bar .hi { color: #4dd17c; font-weight: 600; }
+
+    #cache-bar { padding: 5px 16px; background: #0d1219; font-size: .75rem; color: #556070; display: flex; align-items: center; gap: 8px; }
+    #cache-progress { flex: 1; height: 3px; background: #1e2530; border-radius: 2px; overflow: hidden; }
+    #cache-fill { height: 100%; width: 0%; background: #1a7f4b; transition: width .4s; }
+
+    #map { flex: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+  <h1>Gusanito</h1>
+  <span id="offline-badge">OFFLINE</span>
+</header>
+
+<div id="input-panel">
+  <label>Latitud
+    <input id="lat" type="number" step="any" placeholder="-13.5" />
+  </label>
+  <label>Longitud
+    <input id="lng" type="number" step="any" placeholder="28.0" />
+  </label>
+  <label>Radio verde (m)
+    <input id="radius" type="number" min="10" value="300" />
+  </label>
+  <button id="btn-locate">📍 Mi ubic.</button>
+  <button id="btn-go">Ir al punto</button>
+</div>
+
+<div id="info-bar">Cargando mapa…</div>
+<div id="cache-bar">
+  <span id="cache-label">Preparando caché offline de Zambia…</span>
+  <div id="cache-progress"><div id="cache-fill"></div></div>
+</div>
+
+<div id="map"></div>
+
+<script>
+// ---- OFFLINE BADGE ----
+const updateOnline = () => document.body.classList.toggle('is-offline', !navigator.onLine);
+window.addEventListener('online', updateOnline);
+window.addEventListener('offline', updateOnline);
+updateOnline();
+
+// ---- STATE ----
+let map, datasource, userPos = null;
+
+// ---- BOOT: fetch key then init map ----
+(async () => {
+  let key = '';
+  try {
+    const r = await fetch('/api/maps-token');
+    if (r.ok) key = (await r.json()).key || '';
+  } catch (_) {}
+
+  if (!key) {
+    setInfo('⚠️ AZURE_MAPS_KEY no configurada en el Function App.');
+    document.getElementById('cache-bar').style.display = 'none';
+    return;
+  }
+
+  // Broadcast key to SW so it can pre-cache Zambia tiles
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'SET_MAPS_KEY', key });
+  }
+
+  map = new atlas.Map('map', {
+    center: [28.0, -13.5],
+    zoom: 5,
+    language: 'es-ES',
+    authOptions: { authType: 'subscriptionKey', subscriptionKey: key },
+    style: 'road',
+  });
+
+  map.events.add('ready', () => {
+    datasource = new atlas.source.DataSource();
+    map.sources.add(datasource);
+
+    map.layers.add(new atlas.layer.PolygonLayer(datasource, null, {
+      fillColor: '#4dd17c',
+      fillOpacity: 0.25,
+      filter: ['==', ['get', 'kind'], 'zone'],
+    }));
+    map.layers.add(new atlas.layer.LineLayer(datasource, null, {
+      strokeColor: '#1a7f4b',
+      strokeWidth: 2,
+      filter: ['==', ['get', 'kind'], 'zone'],
+    }));
+    map.layers.add(new atlas.layer.SymbolLayer(datasource, null, {
+      filter: ['==', ['get', 'kind'], 'target'],
+      iconOptions: { image: 'pin-red', anchor: 'bottom' },
+    }));
+    map.layers.add(new atlas.layer.SymbolLayer(datasource, null, {
+      filter: ['==', ['get', 'kind'], 'user'],
+      iconOptions: { image: 'pin-blue', anchor: 'bottom' },
+    }));
+
+    setInfo('Ingresa coordenadas y presiona <strong>Ir al punto</strong>.');
+  });
+})();
+
+// ---- GO TO POINT ----
+document.getElementById('btn-go').addEventListener('click', goToPoint);
+['lat','lng'].forEach(id => document.getElementById(id).addEventListener('keydown', e => e.key === 'Enter' && goToPoint()));
+
+async function goToPoint() {
+  const lat    = parseFloat(document.getElementById('lat').value);
+  const lng    = parseFloat(document.getElementById('lng').value);
+  const radius = parseInt(document.getElementById('radius').value) || 300;
+
+  if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
+    setInfo('⚠️ Coordenadas inválidas.');
+    return;
+  }
+
+  setInfo('Analizando punto…');
+
+  // Call Azure Function
+  let analysis = null;
+  try {
+    const qs = new URLSearchParams({ lat, lng, radius });
+    if (userPos) { qs.set('userLat', userPos.lat); qs.set('userLng', userPos.lng); }
+    const r = await fetch('/api/analyze-point?' + qs);
+    if (r.ok) analysis = await r.json();
+  } catch (_) {}
+
+  if (!datasource) { if (analysis) renderInfo(analysis); return; }
+
+  datasource.clear();
+  datasource.add(new atlas.data.Feature(approxCircle([lng, lat], radius), { kind: 'zone' }));
+  datasource.add(new atlas.data.Feature(new atlas.data.Point([lng, lat]), { kind: 'target' }));
+
+  if (userPos) {
+    datasource.add(new atlas.data.Feature(new atlas.data.Point([userPos.lng, userPos.lat]), { kind: 'user' }));
+    map.setCamera({ bounds: atlas.data.BoundingBox.fromData(datasource.toJson()), padding: 60 });
+  } else {
+    map.setCamera({ center: [lng, lat], zoom: 13 });
+  }
+
+  analysis ? renderInfo(analysis) : setInfo(`📍 ${lat.toFixed(5)}, ${lng.toFixed(5)} · radio ${radius} m`);
+}
+
+function renderInfo(a) {
+  if (a.distance !== null) {
+    const d = a.distance >= 1000 ? (a.distance/1000).toFixed(2)+' km' : a.distance+' m';
+    setInfo(`${a.insideZone ? '✅' : '📍'} ${a.message} &nbsp;|&nbsp; Distancia: <span class="hi">${d}</span>`);
+  } else {
+    setInfo(`📍 ${a.point.lat.toFixed(5)}, ${a.point.lng.toFixed(5)} · radio ${a.radius} m`);
+  }
+}
+
+// ---- MY LOCATION ----
+document.getElementById('btn-locate').addEventListener('click', () => {
+  if (!navigator.geolocation) { setInfo('⚠️ Geolocalización no disponible.'); return; }
+  setInfo('Obteniendo ubicación…');
+  navigator.geolocation.getCurrentPosition(pos => {
+    userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    if (datasource) {
+      datasource.getShapes().filter(s => s.getProperties().kind === 'user').forEach(s => datasource.remove(s));
+      datasource.add(new atlas.data.Feature(new atlas.data.Point([userPos.lng, userPos.lat]), { kind: 'user' }));
+      if (map) map.setCamera({ center: [userPos.lng, userPos.lat], zoom: 13 });
+    }
+    setInfo(`Tu ubicación: ${userPos.lat.toFixed(5)}, ${userPos.lng.toFixed(5)}`);
+  }, err => setInfo('⚠️ ' + err.message));
+});
+
+// ---- HELPERS ----
+function setInfo(html) { document.getElementById('info-bar').innerHTML = html; }
+
+function approxCircle([cx, cy], radiusM, steps = 64) {
+  const R = 6371000;
+  const dLat = (radiusM / R) * (180 / Math.PI);
+  const dLng = dLat / Math.cos(cy * Math.PI / 180);
+  const pts = Array.from({ length: steps + 1 }, (_, i) => {
+    const a = (i / steps) * 2 * Math.PI;
+    return [cx + dLng * Math.cos(a), cy + dLat * Math.sin(a)];
+  });
+  return new atlas.data.Polygon([pts]);
+}
+
+// ---- SERVICE WORKER ----
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    const label = document.getElementById('cache-label');
+    const fill  = document.getElementById('cache-fill');
+    const bar   = document.getElementById('cache-bar');
+
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (!e.data) return;
+      if (e.data.type === 'CACHE_PROGRESS') {
+        const pct = Math.round(e.data.pct);
+        fill.style.width = pct + '%';
+        label.textContent = `Zambia offline: ${pct}%`;
+        if (pct >= 100) {
+          label.textContent = '✅ Mapa Zambia disponible offline';
+          setTimeout(() => bar.style.display = 'none', 3000);
+        }
+      }
+      if (e.data.type === 'CACHE_READY') {
+        label.textContent = '✅ Mapa Zambia disponible offline';
+        fill.style.width = '100%';
+        setTimeout(() => bar.style.display = 'none', 2000);
+      }
+    });
+
+    // If SW already active and controlling, tiles already cached
+    if (reg.active && !reg.installing) {
+      reg.active.postMessage({ type: 'CHECK_CACHE' });
+    }
+  }).catch(() => {
+    document.getElementById('cache-bar').style.display = 'none';
+  });
+}
+</script>
+</body>
+</html>
