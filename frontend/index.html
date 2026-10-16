@@ -73,6 +73,11 @@
     #ask img { display: block; width: 100%; height: 190px; object-fit: cover; border-radius: var(--radius); border: 1.5px solid var(--rule); background: var(--paper); margin-bottom: 14px; }
     #ask h2 { font-size: 1.3rem; margin-bottom: 12px; }
     #ask .btn { width: 100%; min-height: 60px; font-size: 1.1rem; margin-bottom: 10px; }
+    #ask .choices { display: grid; gap: 8px; margin-bottom: 8px; }
+    #ask .choice { min-height: 56px; margin: 0; justify-content: flex-start; gap: 12px; font-weight: 400; }
+    #ask .choice::before { content: ""; flex: none; width: 22px; height: 22px; border: 2px solid var(--coal); border-radius: 50%; background: var(--paper); }
+    #ask .choice[aria-checked="true"] { background: var(--coal); color: var(--paper); font-weight: 700; }
+    #ask .choice[aria-checked="true"]::before { border-color: var(--paper); background: var(--reservoir); box-shadow: inset 0 0 0 4px var(--coal); }
     #ask .link { min-height: 48px; border-color: transparent; font-weight: 400; text-decoration: underline; }
     #ask-msg { min-height: 1.4em; margin-bottom: 8px; font-size: 1rem; }
     #ask-msg.err { color: var(--ember); font-weight: 700; }
@@ -114,9 +119,13 @@
   <div class="body" id="ask-question">
     <img id="photo-preview" alt="Foto tomada" />
     <h2 id="ask-title">¿Qué ves en la foto?</h2>
+    <div class="choices" role="radiogroup" aria-labelledby="ask-title">
+      <button class="btn choice" type="button" role="radio" aria-checked="false" data-label="armyworm">Hay plaga</button>
+      <button class="btn choice" type="button" role="radio" aria-checked="false" data-label="not_armyworm">No hay plaga</button>
+      <button class="btn choice" type="button" role="radio" aria-checked="false" data-label="unsure">No estoy seguro</button>
+    </div>
     <div id="ask-msg" role="alert"></div>
-    <button class="btn" type="button" data-label="armyworm">Hay gusano</button>
-    <button class="btn" type="button" data-label="not_armyworm">No hay gusano</button>
+    <button id="ask-send" class="btn primary" type="button" disabled>Enviar foto</button>
     <button id="ask-cancel" class="btn link" type="button">Cancelar</button>
   </div>
   <div class="body done" id="ask-done" hidden>
@@ -244,12 +253,26 @@ locateBtn.addEventListener('click', startLocating);
 startLocating();
 
 // ---- PHOTO REPORT ----
-// Flow: take photo -> pop-up asks what they see -> one tap sends it. The PWA only sends the photo;
-// the server asks Claude and keeps the analysis, so nothing from Claude is shown here.
+// Flow: take photo -> pop-up asks what they see -> pick an answer -> "Enviar foto" confirms. The PWA
+// only sends the photo; the server asks Claude and keeps the analysis, so nothing from Claude is shown here.
 const fileIn = document.getElementById('photo-file');
 const ask = document.getElementById('ask');
 const askMsg = document.getElementById('ask-msg');
 const choiceBtns = document.querySelectorAll('#ask [data-label]');
+const sendBtn = document.getElementById('ask-send');
+let label = null;
+
+function choose(btn) {
+  label = btn ? btn.dataset.label : null;
+  choiceBtns.forEach(b => b.setAttribute('aria-checked', String(b === btn)));
+  sendBtn.disabled = !label;
+}
+choiceBtns.forEach(btn => btn.addEventListener('click', () => choose(btn)));
+function setSending(sending) {
+  choiceBtns.forEach(b => (b.disabled = sending));
+  sendBtn.disabled = sending || !label;
+  sendBtn.textContent = sending ? 'Enviando foto…' : 'Enviar foto';
+}
 
 function fail(msg) { askMsg.className = 'err'; askMsg.textContent = msg; }
 function showAsk(question) {
@@ -273,7 +296,8 @@ fileIn.addEventListener('change', () => {
   reportId = crypto.randomUUID();
   document.getElementById('photo-preview').src = URL.createObjectURL(f);
   askMsg.className = ''; askMsg.textContent = '';
-  choiceBtns.forEach(b => (b.disabled = false));
+  choose(null);
+  setSending(false);
   showAsk(true);
   ask.showModal();
 });
@@ -299,19 +323,19 @@ function getGps() {
   });
 }
 
-choiceBtns.forEach(btn => btn.addEventListener('click', async () => {
+sendBtn.addEventListener('click', async () => {
   const f = fileIn.files[0];
-  if (!f) return;
+  if (!f || !label) return;
   if (!navigator.onLine) return fail('No hay conexión. Intenta de nuevo cuando tengas señal.');
 
-  choiceBtns.forEach(b => (b.disabled = true));
-  askMsg.className = ''; askMsg.textContent = 'Enviando foto…';
+  setSending(true);
+  askMsg.className = ''; askMsg.textContent = '';
   try {
     const [img, location] = await Promise.all([toJpeg(f), userPos ? { ...userPos } : getGps()]);
     const body = {
       id: reportId,
       reservoirId: selected ? selected.id : null,
-      label: btn.dataset.label,
+      label,
       location,
       capturedAt: new Date(f.lastModified).toISOString(),
       photos: [{ mediaType: 'image/jpeg', data: img.data }],
@@ -325,10 +349,10 @@ choiceBtns.forEach(btn => btn.addEventListener('click', async () => {
       : 'Un agrónomo la revisará. Se envió sin ubicación GPS.';
     showAsk(false);
   } catch (e) {
-    fail('No se pudo enviar. Toca una opción para intentar de nuevo.');
-    choiceBtns.forEach(b => (b.disabled = false));
+    setSending(false);
+    fail('No se pudo enviar. Toca "Enviar foto" para intentar de nuevo.');
   }
-}));
+});
 
 // ---- HELPERS ----
 function setInfo(html) { document.getElementById('info-bar').innerHTML = html; }

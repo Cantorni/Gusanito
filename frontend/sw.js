@@ -1,5 +1,5 @@
 // Gusanito Service Worker: offline app shell + offline Zambia vector map (PMTiles)
-const CACHE = 'gusanito-v9';
+const CACHE = 'gusanito-v10';
 const MAP_URL = '/zambia.pmtiles';
 const APP_SHELL = [
   '/vendor/fonts/atkinson-400.woff2', '/vendor/fonts/atkinson-700.woff2',

@@ -52,7 +52,7 @@ The PWA gets an acknowledgement as soon as the photo is stored and never sees Cl
 }
 ```
 
-Only `id` and 1-3 `photos` are required. The PWA generates `id` per photo, so a resend after a dropped connection is never stored twice.
+Only `id` and 1-3 `photos` are required. `label` is what the officer picked: `armyworm`, `not_armyworm` or `unsure`. The PWA generates `id` per photo, so a resend after a dropped connection is never stored twice.
 
 Report `estado`, set by the analysis:
 

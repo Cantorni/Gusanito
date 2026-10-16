@@ -60,7 +60,7 @@ class ReportIn(_Wire):
     id: UUID
     reservoir_id: str | None = Field(default=None, pattern=RESERVOIR_ID_PATTERN)
     # What the extension officer said they see.
-    label: Literal["armyworm", "not_armyworm"] | None = None
+    label: Literal["armyworm", "not_armyworm", "unsure"] | None = None
     location: Location | None = None
     captured_at: datetime | None = None
     notes: str | None = Field(default=None, max_length=500)
@@ -125,7 +125,7 @@ def decide_estado(analysis: Analysis | None, min_confidence: float) -> Estado:
 
 def agrees_with_officer(label: str | None, analysis: Analysis | None) -> bool | None:
     """Whether Claude agrees with the officer's label. None when there is nothing to compare."""
-    if label is None or analysis is None or analysis.calidad_fotos == "no_sirve":
+    if label in (None, "unsure") or analysis is None or analysis.calidad_fotos == "no_sirve":
         return None
     return bool(analysis.senales_gusano) == (label == "armyworm")
 

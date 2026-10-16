@@ -53,7 +53,7 @@ const ESTADO = {
   pendiente: 'Análisis pendiente', reservorio_confirmado: 'Reservorio confirmado', hospedero_sin_senales: 'Hospedero sin señales',
   descartado: 'Descartado', revision_humana: 'Revisión humana', repetir_fotos: 'Repetir fotos', error_analisis: 'Error de análisis',
 };
-const LABEL = { armyworm: 'Hay gusano', not_armyworm: 'No hay gusano' };
+const LABEL = { armyworm: 'Hay plaga', not_armyworm: 'No hay plaga', unsure: 'No está seguro' };
 const HOSPEDERO = { si: ' (hospedero)', no: ' (no hospedero)', incierto: ' (hospedero incierto)' };
 const place = p => p ? `<a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=16/${p.lat}/${p.lng}">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</a>${p.accuracy ? ` (±${Math.round(p.accuracy)} m)` : ''}` : '—';
 

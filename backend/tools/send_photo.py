@@ -30,7 +30,7 @@ def main() -> None:
     parser.add_argument("photos", nargs="+")
     parser.add_argument("--url", default="http://127.0.0.1:8787/api")
     parser.add_argument("--token", required=True, help="REPORT_TOKEN, to read the analysis back")
-    parser.add_argument("--label", choices=["armyworm", "not_armyworm"])
+    parser.add_argument("--label", choices=["armyworm", "not_armyworm", "unsure"])
     parser.add_argument("--reservoir")
     parser.add_argument("--wait", type=int, default=180, help="seconds to wait for the analysis")
     args = parser.parse_args()

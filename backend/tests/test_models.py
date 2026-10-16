@@ -50,6 +50,7 @@ def test_no_analysis_goes_to_human_review():
         ("not_armyworm", {}, True),
         ("not_armyworm", {"senales_gusano": ["larva_visible"]}, False),
         (None, {}, None),
+        ("unsure", {"senales_gusano": ["hojas_ventana"]}, None),
         ("armyworm", {"calidad_fotos": "no_sirve"}, None),
     ],
 )
