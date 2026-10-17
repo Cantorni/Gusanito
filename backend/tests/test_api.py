@@ -231,22 +231,21 @@ def test_permanent_error_fails_without_retry(repo, monkeypatch):
     assert repo.reports[REPORT_ID]["estado"] == "error_analisis"
 
 
-def test_reading_reports_needs_the_token(repo, analyzer):
+def test_reading_reports_needs_no_token(repo, analyzer):
     post_report()
-    assert call(function_app.list_reports)[0] == 401
-    assert call(function_app.list_reports, headers={"x-report-token": "wrong"})[0] == 401
-
-    status, reports, _ = call(function_app.list_reports, headers=AUTH)
+    status, reports, _ = call(function_app.list_reports)
     assert status == 200 and [r["id"] for r in reports] == [REPORT_ID]
-    assert call(function_app.list_reports, params={"reservoirId": "kasungu-0042"}, headers=AUTH)[0] == 200
-    assert call(function_app.list_reports, params={"reservoirId": "a'b"}, headers=AUTH)[0] == 400
+    assert call(function_app.list_reports, params={"reservoirId": "kasungu-0042"})[0] == 200
+    assert call(function_app.list_reports, params={"reservoirId": "a'b"})[0] == 400
+
+
+def test_drafting_alerts_needs_the_token(repo, monkeypatch):
+    body = json.dumps({"riskLevel": "high", "distanceKm": 2, "daysToAct": 7}).encode()
+    assert call(function_app.alert_message, "POST", body, headers={"x-report-token": "wrong"})[0] == 401
     # The token is never read from the query string, where it would land in logs.
-    assert call(function_app.list_reports, params={"token": TOKEN})[0] == 401
-
-
-def test_token_not_configured(repo, monkeypatch):
+    assert call(function_app.alert_message, "POST", body, params={"token": TOKEN})[0] == 401
     monkeypatch.setattr(function_app, "_config", lambda: Config(None, "account", "m", "medium", 0.7, None))
-    assert call(function_app.list_reports, headers=AUTH)[0] == 503
+    assert call(function_app.alert_message, "POST", body, headers=AUTH)[0] == 503
 
 
 def test_get_report_and_photo(repo, analyzer):
@@ -259,7 +258,7 @@ def test_get_report_and_photo(repo, analyzer):
     res = function_app.get_photo.build().get_user_function()(req)
     assert res.status_code == 200 and res.get_body() == PHOTO_BYTES and res.mimetype == "image/jpeg"
     assert call(function_app.get_photo, route_params={"id": REPORT_ID, "index": "3"}, headers=AUTH)[0] == 404
-    assert call(function_app.get_photo, route_params={"id": REPORT_ID, "index": "0"})[0] == 401
+    assert call(function_app.get_photo, route_params={"id": REPORT_ID, "index": "0"})[0] == 200  # no token needed
 
 
 def test_reservoirs(repo):
