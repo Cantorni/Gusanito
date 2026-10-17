@@ -1,0 +1,7 @@
+.venv/
+datos/
+datos_hibrido/
+datos_externos/
+__pycache__/
+modelo_hibrido/embeddings.npy
+modelo_hibrido/dataset_hibrido.csv

@@ -44,6 +44,8 @@
     #topbar h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: .01em; }
     #net { font-size: .85rem; padding: 4px 10px; border-radius: 99px; border: 1.5px solid var(--straw); color: var(--paper); }
     body.is-offline #net { background: var(--straw); color: var(--coal); border-color: var(--straw); font-weight: 700; }
+    #topbar .chips { display: flex; gap: 8px; align-items: center; }
+    #demo-chip { font-size: .85rem; font-weight: 700; padding: 4px 10px; border-radius: 99px; background: var(--ember); color: #fff; }
 
     /* bottom sheet */
     #sheet { position: absolute; z-index: 1100; left: 0; right: 0; bottom: 0; background: var(--ash); border-top: 2px solid var(--coal); padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); max-width: 640px; margin: 0 auto; }
@@ -109,7 +111,10 @@
 
 <div id="topbar">
   <h1>Gusanito</h1>
-  <span id="net" role="status">En línea</span>
+  <div class="chips">
+    <span id="demo-chip" hidden>Demo</span>
+    <span id="net" role="status">En línea</span>
+  </div>
 </div>
 
 <section id="sheet" aria-label="Controles">
@@ -328,6 +333,21 @@ function drawSmsPoints(pts) {
   }
 })();
 
+// ---- DEMO MODE: ?demo=chimunsi fixes the location in the demo area, so the reservoirs can be found ----
+// It sticks across launches (an installed PWA opens without the query string) until ?demo=off.
+// Reports sent in demo mode are marked so they never mix with field data.
+const DEMO_PLACES = { chimunsi: { name: 'Chimunsi', lat: -14.30, lng: 31.60, accuracy: 10 } };
+const demo = (() => {
+  let key = new URLSearchParams(location.search).get('demo');
+  try {
+    if (key === 'off') localStorage.removeItem('demo');
+    else if (key) localStorage.setItem('demo', key);
+    else key = localStorage.getItem('demo');
+  } catch (_) { /* storage blocked: demo lasts for this page only */ }
+  return DEMO_PLACES[key] || null;
+})();
+document.getElementById('demo-chip').hidden = !demo;
+
 // ---- LOCATION: automatic, the user never types coordinates ----
 const locateBtn = document.getElementById('btn-locate');
 
@@ -341,7 +361,7 @@ function onFix(pos) {
     userMarker.setLatLng([lat, lng]);
     accuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
   }
-  if (!pickingField) setInfo(`Tu ubicación: <span class="hi">${lat.toFixed(5)}, ${lng.toFixed(5)}</span> (±${Math.round(accuracy)} m)`);
+  if (!pickingField) setInfo(`${demo ? `Ubicación de demo (${demo.name})` : 'Tu ubicación'}: <span class="hi">${lat.toFixed(5)}, ${lng.toFixed(5)}</span> (±${Math.round(accuracy)} m)`);
   locateBtn.hidden = true;
   document.getElementById('btn-me').hidden = false;
   updateGuide();
@@ -384,6 +404,7 @@ function onGeoError(err) {
 }
 
 function startLocating() {
+  if (demo) return onFix({ coords: { latitude: demo.lat, longitude: demo.lng, accuracy: demo.accuracy } });
   if (!navigator.geolocation) { setInfo('Este dispositivo no tiene GPS.'); return; }
   setInfo('Buscando tu ubicación…');
   if (watchId !== null) navigator.geolocation.clearWatch(watchId);
@@ -455,6 +476,7 @@ async function toJpeg(file) {
 
 function getGps() {
   return new Promise(resolve => {
+    if (demo) return resolve({ lat: demo.lat, lng: demo.lng, accuracy: demo.accuracy });
     if (!navigator.geolocation) return resolve(null);
     navigator.geolocation.getCurrentPosition(
       p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
@@ -479,6 +501,7 @@ sendBtn.addEventListener('click', async () => {
       path: '/reports',
       body: {
         id: reportId,
+        demo: Boolean(demo),
         reservoirId: selected ? selected.id : null,
         label,
         location,

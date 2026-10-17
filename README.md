@@ -57,7 +57,7 @@ The PWA gets an acknowledgement as soon as the photo is stored and never sees Cl
 }
 ```
 
-Only `id` and 1-3 `photos` are required. `label` is what the officer picked: `armyworm`, `not_armyworm` or `unsure`. The PWA generates `id` per photo, so a resend after a dropped connection is never stored twice.
+Only `id` and 1-3 `photos` are required. `demo: true` marks a report sent from demo mode. `label` is what the officer picked: `armyworm`, `not_armyworm` or `unsure`. The PWA generates `id` per photo, so a resend after a dropped connection is never stored twice.
 
 Claude's `analisis` answers yes or no and says how sure it is, with the evidence as structured fields (no free text):
 
@@ -148,6 +148,8 @@ cd frontend && node dev-server.js                    # http://127.0.0.1:8787, re
 ```
 
 The offline map is not committed: from `frontend/` run `scripts/make-tiles.sh` (needs the `pmtiles` CLI). Without it the map background is blank, everything else works.
+
+**Demo mode**, to present away from the field: open the PWA with `?demo=chimunsi`. The location is fixed in the demo area at Chimunsi, Eastern Province, where the reservoirs are (no GPS prompt), a red "Demo" chip shows in the top bar, and reports go out with `"demo": true` so they never mix with field data (the receiver page tags them). It survives relaunching the installed PWA; `?demo=off` turns it off. Add places in `DEMO_PLACES` in `frontend/index.html`.
 
 The service worker serves the app shell cache-first: bump `CACHE` in `frontend/sw.js` whenever a cached file changes, or browsers keep the old version.
 
