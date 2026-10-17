@@ -24,6 +24,7 @@
   .estado.revision_humana, .estado.repetir_fotos { background: var(--straw); }
   .estado.pendiente { border-style: dashed; }
   .estado.error_analisis { border-color: var(--ember); color: var(--ember); }
+  .demo-tag { display: inline-block; font-weight: 700; padding: 2px 10px; border-radius: 99px; background: var(--ember); color: #fff; margin-left: 6px; }
   .nota { margin: 4px 0 8px; max-width: 68ch; }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; font-size: .92rem; }
   dt { color: var(--muted); }
@@ -79,7 +80,7 @@ function row(x) {
   return `<article class="report">
     <img alt="Foto del reporte" data-report="${esc(x.id)}"${photoUrls.has(x.id) ? ` src="${photoUrls.get(x.id)}"` : ''}>
     <div>
-      <span class="estado ${esc(x.estado)}">${esc(ESTADO[x.estado] || x.estado)}</span>
+      <span class="estado ${esc(x.estado)}">${esc(ESTADO[x.estado] || x.estado)}</span>${x.demo ? '<span class="demo-tag" title="Enviado en modo demo, con ubicación fija">Demo</span>' : ''}
       <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
       <p class="nota" style="color:var(--muted);font-size:.85rem">${esc(new Date(x.receivedAt).toLocaleString())}</p>
     </div></article>`;

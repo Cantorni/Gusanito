@@ -127,7 +127,7 @@ def test_post_stores_report_and_queues_analysis(repo, analyzer):
     assert ack == {"id": REPORT_ID, "receivedAt": ack["receivedAt"], "status": "recibido"}
     assert queue.messages == [{"id": REPORT_ID}]
     stored = repo.reports[REPORT_ID]
-    assert stored["estado"] == "pendiente" and stored["analisis"] is None
+    assert stored["estado"] == "pendiente" and stored["analisis"] is None and stored["demo"] is False
     assert stored["photos"] == [{"file": f"{REPORT_ID}/0.jpg", "mediaType": "image/jpeg"}]
     assert stored["location"] == {"lat": -13.0333, "lng": 33.4833, "accuracy": 8}
     assert stored["meta"]["originalSize"] == 2_400_000
@@ -273,3 +273,8 @@ def test_alert_without_anthropic_key(repo, monkeypatch):
     body = json.dumps({"riskLevel": "high", "distanceKm": 2, "daysToAct": 7}).encode()
     status, payload, _ = call(function_app.alert_message, "POST", body, headers=AUTH)
     assert status == 500 and payload == {"error": "service not configured"}
+
+
+def test_demo_reports_are_marked(repo, analyzer):
+    post_report(report_body(demo=True))
+    assert repo.reports[REPORT_ID]["demo"] is True

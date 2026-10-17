@@ -129,6 +129,7 @@ def create_report(req: func.HttpRequest, queue: func.Out[str]) -> func.HttpRespo
     photos = [repo.save_photo(report_id, i, p.raw(), p.media_type) for i, p in enumerate(report_in.photos)]
     report = dict.fromkeys(REPORT_FIELDS) | {
         "id": report_id,
+        "demo": report_in.demo,
         "reservoirId": report_in.reservoir_id,
         "label": report_in.label,
         "location": report_in.location.model_dump() if report_in.location else None,

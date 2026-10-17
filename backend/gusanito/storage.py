@@ -21,7 +21,7 @@ _CONTENT_TYPES = {v: k for k, v in _EXTENSIONS.items()}
 _JSON_FIELDS = ("photos", "location", "meta", "analisis")
 # None values are not stored, so reads fill them back in to keep one shape for clients.
 REPORT_FIELDS = (
-    "reservoirId", "label", "location", "capturedAt", "notes", "meta", "photos", "receivedAt",
+    "demo", "reservoirId", "label", "location", "capturedAt", "notes", "meta", "photos", "receivedAt",
     "estado", "analisis", "agrees", "refused", "model", "requestId", "analyzedAt", "analysisError",
 )
 
