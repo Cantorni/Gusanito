@@ -18,7 +18,7 @@
   main { padding: 16px; max-width: 980px; margin: 0 auto; }
   #empty { padding: 40px 0; color: var(--muted); }
   .report { display: grid; grid-template-columns: 112px 1fr; gap: 14px; padding: 14px 0; border-bottom: 1.5px solid var(--rule); }
-  .report img { width: 112px; height: 112px; object-fit: cover; border-radius: 10px; border: 1.5px solid var(--rule); background: var(--paper); }
+  .report img, .report .thumb { width: 112px; height: 112px; object-fit: cover; border-radius: 10px; border: 1.5px solid var(--rule); background: var(--paper); }
   .estado { display: inline-block; font-weight: 700; padding: 2px 10px; border-radius: 99px; border: 2px solid var(--coal); margin-bottom: 6px; }
   .estado.reservorio_confirmado { background: var(--reservoir); border-color: var(--reservoir-ink); color: #fff; }
   .estado.revision_humana, .estado.repetir_fotos { background: var(--straw); }
@@ -43,7 +43,7 @@
   .risk.medium { background: var(--straw); border-color: var(--straw); }
   .bubble { align-self: start; justify-self: start; max-width: 46ch; background: var(--paper); border: 1.5px solid var(--rule); border-radius: 16px 16px 16px 4px; padding: 10px 14px; overflow-wrap: anywhere; }
   .bubble small { display: block; margin-top: 6px; color: var(--muted); font-size: .8rem; }
-  @media (max-width: 520px) { .report, .sms { grid-template-columns: 1fr; } .report img { width: 100%; height: 200px; } }
+  @media (max-width: 520px) { .report, .sms { grid-template-columns: 1fr; } .report img, .report .thumb { width: 100%; height: 200px; } }
 </style>
 </head>
 <body>
@@ -95,7 +95,7 @@ function row(x) {
   else if (x.refused) rows.push(['Análisis', 'Claude no analizó la foto']);
   else if (x.analysisError) rows.push(['Análisis', `falló (${esc(x.analysisError)})`]);
   return `<article class="report">
-    <img alt="Foto del reporte" data-report="${esc(x.id)}"${photoUrls.has(x.id) ? ` src="${photoUrls.get(x.id)}"` : ''}>
+    ${photoUrls.has(x.id) ? photoTag(photoUrls.get(x.id)) : `<div class="thumb" data-report="${esc(x.id)}" role="img" aria-label="Cargando foto"></div>`}
     <div>
       <span class="estado ${esc(x.estado)}">${esc(ESTADO[x.estado] || x.estado)}</span>${x.demo ? '<span class="demo-tag" title="Enviado en modo demo, con ubicación fija">Demo</span>' : ''}
       <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
@@ -147,20 +147,22 @@ async function load() {
   dl.download = v.file;
   dl.href = 'data:application/json,' + encodeURIComponent(JSON.stringify(rows, null, 2));
   list.innerHTML = rows.length ? rows.map(v.render).join('') : `<p id="empty">${v.empty}</p>`;
-  list.querySelectorAll('img[data-report]:not([src])').forEach(loadPhoto);
+  list.querySelectorAll('.thumb[data-report]').forEach(loadPhoto);
 }
 window.addEventListener('hashchange', load);
 
 // Photos need the token header, which an <img src> cannot send: fetch them and show blob URLs.
 // Each photo is fetched once; the 15 s refresh reuses the URL.
+// Until it arrives, an empty box stands in for the photo (an <img> without src shows a broken icon).
 const photoUrls = new Map();
-async function loadPhoto(img) {
-  const id = img.dataset.report;
+const photoTag = url => `<img alt="Foto del reporte" src="${url}">`;
+async function loadPhoto(box) {
+  const id = box.dataset.report;
   try {
     const r = await fetch(`${API}/reports/${encodeURIComponent(id)}/photos/0`, { headers: { 'x-report-token': token } });
     if (!r.ok) return;
     photoUrls.set(id, URL.createObjectURL(await r.blob()));
-    document.querySelectorAll(`img[data-report="${CSS.escape(id)}"]`).forEach(el => (el.src = photoUrls.get(id)));
+    document.querySelectorAll(`.thumb[data-report="${CSS.escape(id)}"]`).forEach(el => (el.outerHTML = photoTag(photoUrls.get(id))));
   } catch (_) { /* offline: retried on the next refresh */ }
 }
 load();

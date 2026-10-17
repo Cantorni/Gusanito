@@ -18,6 +18,12 @@ output "storage_account" {
   value = azurerm_storage_account.main.name
 }
 
+# For the data tools run from a laptop (backend/tools/seed_demo.py, publish_layer.py, run_alerts.py).
+output "storage_connection_string" {
+  value     = azurerm_storage_account.main.primary_connection_string
+  sensitive = true
+}
+
 output "key_vault" {
   value = azurerm_key_vault.main.name
 }

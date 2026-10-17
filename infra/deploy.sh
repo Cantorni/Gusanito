@@ -20,5 +20,6 @@ printf "window.GUSANITO = { apiBase: '%s' };\n" "$api_url" > "$dist/config.js"
 [ -f "$dist/zambia.pmtiles" ] || echo "warning: frontend/zambia.pmtiles is missing, the offline map will be blank (run frontend/scripts/make-tiles.sh)"
 
 echo "Publishing the PWA"
-npx --yes @azure/static-web-apps-cli deploy "$dist" --deployment-token "$swa_token" --env production
+# The token goes in the environment: npx echoes its command line, flags included.
+SWA_CLI_DEPLOYMENT_TOKEN="$swa_token" npx --yes @azure/static-web-apps-cli deploy "$dist" --env production
 echo "PWA: $(terraform output -raw pwa_url)"

@@ -2,7 +2,7 @@
 
 Usage (from backend/):
     .venv/bin/python tools/send_photo.py photo1.jpg [photo2.jpg ...] --token <REPORT_TOKEN> \
-        [--url http://127.0.0.1:8787/api] [--label armyworm] [--reservoir kasungu-0042]
+        [--url http://127.0.0.1:8787/api] [--label armyworm] [--reservoir kasungu-0042] [--demo]
 """
 
 import argparse
@@ -32,6 +32,7 @@ def main() -> None:
     parser.add_argument("--token", required=True, help="REPORT_TOKEN, to read the analysis back")
     parser.add_argument("--label", choices=["armyworm", "not_armyworm", "unsure"])
     parser.add_argument("--reservoir")
+    parser.add_argument("--demo", action="store_true", help="mark it as a demo report: kept out of the ML labels")
     parser.add_argument("--wait", type=int, default=180, help="seconds to wait for the analysis")
     args = parser.parse_args()
 
@@ -40,7 +41,7 @@ def main() -> None:
         with open(path, "rb") as f:
             photos.append({"mediaType": mimetypes.guess_type(path)[0], "data": base64.b64encode(f.read()).decode()})
     report_id = str(uuid.uuid4())
-    body = {"id": report_id, "photos": photos, "label": args.label, "reservoirId": args.reservoir}
+    body = {"id": report_id, "photos": photos, "label": args.label, "reservoirId": args.reservoir, "demo": args.demo or None}
 
     try:
         status, ack = request(f"{args.url}/reports", body={k: v for k, v in body.items() if v is not None})

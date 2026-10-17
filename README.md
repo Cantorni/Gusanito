@@ -183,13 +183,13 @@ az functionapp restart -g "$(terraform output -raw resource_group)" -n "$(terraf
 terraform output -raw report_token   # for the receiver page
 ```
 
-The Function App reaches Storage with a managed identity (no keys) and reads the Anthropic key through a Key Vault reference. Its CORS allows the Static Web App and the local dev server. Whoever runs Terraform also gets data access to the storage account, for the tools below. The Azure ML workspace (`infra/ml.tf`) is off: set `enable_ml = true` to create it.
+Terraform creates no role assignments: the hackathon resource group grants Contributor, which cannot. So the Function App reaches Storage with the account key (in its app settings and in the Terraform state), and reads the Anthropic key through a Key Vault reference allowed by a Key Vault access policy. Its CORS allows the Static Web App and the local dev server. The Azure ML workspace (`infra/ml.tf`) is off: `enable_ml = true` creates it, and needs permission to assign roles.
 
 ### Presenting from Azure
 
 ```sh
 # Sample reservoirs around Chimunsi and 20 synthetic farmers subscribed near them (made-up numbers, nothing is sent)
-cd backend && DATA_STORAGE_ACCOUNT="$(terraform -chdir=../infra output -raw storage_account)" .venv/bin/python tools/seed_demo.py
+cd backend && DATA_STORAGE_CONNECTION_STRING="$(terraform -chdir=../infra output -raw storage_connection_string)" .venv/bin/python tools/seed_demo.py
 ```
 
 - **Phones:** open `<pwa_url>/?demo=chimunsi` once (a QR code is handy). Demo mode is stored per address, so turning it on locally or through a tunnel does not carry over. On iPhone, an app added to the home screen may not share Safari's storage: check that the red "Demo" chip shows, or present from the browser.
@@ -201,6 +201,7 @@ cd backend && DATA_STORAGE_ACCOUNT="$(terraform -chdir=../infra output -raw stor
 - **Offline queue tested by hand only:** no browser test covers IndexedDB, Background Sync or the service worker.
 - **Spend control:** anyone with the PWA can post reports, and each one is analysed. Set a spend limit on the Anthropic workspace whose key you deploy.
 - **Receiver auth** is a shared token; use Entra ID for anything beyond the hackathon.
+- **Storage keys:** without permission to assign roles, the Function App uses the storage account key. With Owner or User Access Administrator, go back to a managed identity and turn off shared keys.
 - **Alerts are simulated by default.** The Twilio sender exists but is off and untested against the real service; Africa's Talking is not wired in. The engine uses fixed templates; the Claude drafter (`/api/alerts/message`) is not in the SMS path. The Nyanja text needs a native speaker's review.
 - **Alert radius is a judgement**, not a measured gradient (see `docs/distancia-alerta.md`); wind direction is not used.
 - **Subscribers:** anyone can register or unsubscribe any number (no SMS confirmation code). Fine for a demo, not for real farmers.
