@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Gusanito – Zambia</title>
+  <title>BRASA – Zambia</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#1b1d19" />
   <link rel="stylesheet" href="vendor/leaflet.css" />
@@ -90,7 +90,8 @@
     dialog fieldset { border: 0; margin-bottom: 8px; }
     dialog input[type="tel"] { width: 100%; min-height: var(--tap); padding: 0 12px; font-size: 1.15rem; border: 2px solid var(--coal); border-radius: var(--radius); background: var(--paper); }
     dialog input[aria-invalid="true"] { border-color: var(--ember); }
-    dialog .hint { color: var(--muted); font-size: .9rem; margin: 6px 0 14px; }
+    #cam-video { width: 100%; max-height: 52vh; border-radius: var(--radius); background: #000; margin-bottom: 10px; object-fit: cover; }
+  dialog .hint { color: var(--muted); font-size: .9rem; margin: 6px 0 14px; }
     dialog .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
     dialog .row .btn { min-height: 52px; font-size: 1rem; margin: 0; }
     #sub-loc { font-weight: 700; color: var(--reservoir-ink); }
@@ -110,7 +111,7 @@
 <div id="map"></div>
 
 <div id="topbar">
-  <h1>Gusanito</h1>
+  <h1>BRASA</h1>
   <div class="chips">
     <span id="demo-chip" hidden>Demo</span>
     <span id="net" role="status">En línea</span>
@@ -132,7 +133,6 @@
     <button id="btn-photo" class="btn primary" type="button">Tomar foto del parche</button>
     <button id="btn-locate" class="btn" type="button" hidden>Activar ubicación</button>
     <button id="btn-me" class="btn" type="button" hidden>Ir a mi ubicación</button>
-    <button id="btn-sub" class="btn" type="button">Recibir alertas por SMS</button>
   </div>
   <div id="cache-bar">
     <span id="cache-label">Descargando mapa sin conexión…</span>
@@ -141,6 +141,27 @@
 </section>
 
 <input id="photo-file" type="file" accept="image/*" hidden />
+<input id="photo-camera" type="file" accept="image/*" capture="environment" hidden />
+<dialog id="photo-choice" aria-labelledby="choice-title">
+  <div class="body">
+    <h2 id="choice-title">Foto del parche</h2>
+    <button id="choice-camera" class="btn primary" type="button">Usar la cámara</button>
+    <button id="choice-upload" class="btn" type="button">Subir una foto</button>
+    <button id="choice-cancel" class="btn link" type="button">Cancelar</button>
+  </div>
+</dialog>
+<dialog id="cam" aria-label="Cámara">
+  <div class="body">
+    <h2>Toma la foto</h2>
+    <video id="cam-video" autoplay playsinline muted></video>
+    <p id="cam-msg" class="msg" role="alert"></p>
+    <button id="cam-shot" class="btn primary" type="button">Capturar</button>
+    <div class="row">
+      <button id="cam-file" class="btn" type="button">Elegir un archivo</button>
+      <button id="cam-cancel" class="btn" type="button">Cancelar</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="ask" aria-labelledby="ask-title">
   <div class="body" id="ask-question">
@@ -445,8 +466,50 @@ function showAsk(question) {
 }
 function closeAsk() { ask.close(); fileIn.value = ''; }
 
-document.getElementById('btn-photo').addEventListener('click', () => fileIn.click());
-document.getElementById('ask-another').addEventListener('click', () => { closeAsk(); fileIn.click(); });
+// Two ways in: the camera or an existing photo. Phones open the camera app through an input with capture;
+// computers have no capture, so the webcam opens here. Either way the file ends up in photo-file, and
+// everything after it (pop-up, queue, send) is the same flow.
+const choice = document.getElementById('photo-choice');
+const cam = document.getElementById('cam'), camVideo = document.getElementById('cam-video'), camMsg = document.getElementById('cam-msg');
+const camIn = document.getElementById('photo-camera');
+let camStream = null;
+function stopCam() { if (camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null; camVideo.srcObject = null; }
+function useFile(file) {
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  fileIn.files = dt.files;
+  fileIn.dispatchEvent(new Event('change'));
+}
+async function openCamera() {
+  const phone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (phone || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return camIn.click();
+  camMsg.textContent = ''; camMsg.classList.remove('err');
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  } catch (_) { return fileIn.click(); } // no camera or permission denied: pick a file instead
+  camVideo.srcObject = camStream;
+  cam.showModal();
+}
+function takePhoto() { choice.showModal(); }
+camIn.addEventListener('change', () => { if (camIn.files[0]) useFile(camIn.files[0]); camIn.value = ''; });
+document.getElementById('choice-camera').addEventListener('click', () => { choice.close(); openCamera(); });
+document.getElementById('choice-upload').addEventListener('click', () => { choice.close(); fileIn.click(); });
+document.getElementById('choice-cancel').addEventListener('click', () => choice.close());
+document.getElementById('cam-shot').addEventListener('click', () => {
+  if (!camVideo.videoWidth) { camMsg.classList.add('err'); camMsg.textContent = 'La cámara aún no está lista.'; return; }
+  const c = document.createElement('canvas');
+  c.width = camVideo.videoWidth; c.height = camVideo.videoHeight;
+  c.getContext('2d').drawImage(camVideo, 0, 0);
+  c.toBlob(blob => {
+    stopCam(); cam.close();
+    useFile(new File([blob], `foto-${Date.now()}.jpg`, { type: 'image/jpeg', lastModified: Date.now() }));
+  }, 'image/jpeg', 0.9);
+});
+document.getElementById('cam-cancel').addEventListener('click', () => { stopCam(); cam.close(); });
+document.getElementById('cam-file').addEventListener('click', () => { stopCam(); cam.close(); fileIn.click(); });
+cam.addEventListener('cancel', stopCam);
+document.getElementById('btn-photo').addEventListener('click', takePhoto);
+document.getElementById('ask-another').addEventListener('click', () => { closeAsk(); takePhoto(); });
 document.getElementById('ask-close').addEventListener('click', closeAsk);
 document.getElementById('ask-cancel').addEventListener('click', closeAsk);
 ask.addEventListener('cancel', () => { fileIn.value = ''; }); // Esc / back button
@@ -588,11 +651,13 @@ function setField(lat, lng, fromMap) {
   if (fromMap) { pickingField = false; setInfo('Campo marcado en el mapa.'); subDlg.showModal(); }
 }
 function updateSubButton() {
+  const btn = document.getElementById('btn-sub');
+  if (!btn) return; // the SMS sign-up button is not shown in this version
   const saved = subStore.read();
-  document.getElementById('btn-sub').textContent = saved ? `Alertas SMS activas: ${saved.phone}` : 'Recibir alertas por SMS';
+  btn.textContent = saved ? `Alertas SMS activas: ${saved.phone}` : 'Recibir alertas por SMS';
 }
 
-document.getElementById('btn-sub').addEventListener('click', () => {
+document.getElementById('btn-sub')?.addEventListener('click', () => {
   const saved = subStore.read();
   subMsg.classList.remove('err'); subMsg.textContent = '';
   subPhone.removeAttribute('aria-invalid');

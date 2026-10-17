@@ -3,109 +3,119 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gusanito · Alerta temprana del gusano cogollero</title>
-<meta name="description" content="Un satélite señala dónde puede esconderse el gusano cogollero en la estación seca; un extensionista lo confirma con una foto; un SMS avisa a los campos cercanos.">
+<title>BRASA · Alerta temprana del gusano cogollero</title>
+<meta name="description" content="BRASA encuentra desde el espacio dónde sobrevive el gusano cogollero en la estación seca, para frenarlo antes de que empiece la temporada.">
 <link rel="stylesheet" href="/vendor/leaflet.css">
 <style>
+  /* White everywhere on purpose: it has to read on a TV with the sun behind it. */
   :root {
     color-scheme: light;
-    --bg: #f6f4ec; --surface: #ffffff; --ink: #14201a; --muted: #5a665e; --rule: #dcd8c8;
-    --brand: #1f7a43; --brand-ink: #0f4d2a; --warn: #d9480f; --sun: #e8b931; --map: #ecebe0;
-    --hero: #0f2a1c; --hero-ink: #f1f5ee; --radius: 18px;
+    --bg: #ffffff; --alt: #f3f7f3; --surface: #ffffff; --ink: #0d1f15; --muted: #3f4d44; --rule: #c9d3cb;
+    --brand: #1a7a3e; --brand-ink: #0b4d25; --seca: #2f7d44; --lluvia: #c0651a; --aprende: #1f5a94; --warn: #c2410c; --sun: #f2c230;
+    --radius: 20px;
   }
   * { box-sizing: border-box; margin: 0; }
   html { scroll-behavior: smooth; }
-  body { font: 16px/1.55 "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  body { font: 19px/1.55 "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); }
   a { color: inherit; }
-  .wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
-  h1, h2, h3 { line-height: 1.12; letter-spacing: -.02em; }
-  h2 { font-size: clamp(1.7rem, 3.6vw, 2.5rem); margin-bottom: 12px; }
-  .eyebrow { font: 700 .78rem/1 ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); margin-bottom: 14px; }
-  section { padding: 84px 0; }
+  .wrap { width: min(1180px, 100% - 40px); margin-inline: auto; }
+  h1, h2, h3 { line-height: 1.1; letter-spacing: -.02em; }
+  h2 { font-size: clamp(2rem, 4vw, 3rem); margin-bottom: 14px; }
+  .eyebrow { font: 700 .85rem/1 ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--brand-ink); margin-bottom: 14px; }
+  section { padding: 88px 0; }
+  .alt { background: var(--alt); border-block: 1px solid var(--rule); }
+  .sub { color: var(--muted); max-width: 64ch; font-size: 1.08rem; }
 
   /* hero */
-  .hero { background: radial-gradient(900px 500px at 80% -10%, #1f7a4355, transparent 60%), var(--hero); color: var(--hero-ink); padding: 0 0 96px; }
-  nav { display: flex; flex-wrap: wrap; gap: 10px 22px; justify-content: space-between; align-items: center; padding: 22px 0; }
-  nav b { font-size: 1.2rem; letter-spacing: -.02em; }
-  nav b span { color: #7ddc9f; }
-  nav a { text-decoration: none; font-weight: 700; font-size: .95rem; opacity: .85; margin-left: 22px; white-space: nowrap; }
-  nav a:first-child { margin-left: 0; }
-  nav a:hover { opacity: 1; }
-  .hero h1 { font-size: clamp(2.5rem, 7vw, 5rem); max-width: 14ch; margin-top: 70px; }
-  .hero h1 em { font-style: normal; color: #7ddc9f; }
-  .hero p.lead { font-size: clamp(1.05rem, 2vw, 1.3rem); max-width: 52ch; margin: 22px 0 34px; color: #c3d2c6; }
-  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 24px; border-radius: 99px; font-weight: 700; text-decoration: none; border: 0; cursor: pointer; font-size: 1rem; }
-  .btn.primary { background: #7ddc9f; color: #062412; }
-  .btn.ghost { border: 1.5px solid #ffffff44; color: var(--hero-ink); }
-  .ctas { display: flex; flex-wrap: wrap; gap: 10px; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 64px; }
-  .stat { border: 1px solid #ffffff22; border-radius: var(--radius); padding: 18px 20px; background: #ffffff08; }
-  .stat b { display: block; font-size: 2rem; letter-spacing: -.03em; }
-  .stat span { color: #aebfb3; font-size: .92rem; }
+  .hero { padding: 0 0 80px; background: linear-gradient(180deg, #eaf5ec 0%, #ffffff 100%); }
+  nav { display: flex; justify-content: space-between; align-items: center; padding: 24px 0; flex-wrap: wrap; gap: 10px; }
+  nav b { font-size: 1.7rem; letter-spacing: .08em; color: var(--brand-ink); }
+  nav b span { color: var(--lluvia); }
+  nav a { text-decoration: none; font-weight: 700; margin-left: 24px; }
+  nav a:hover { text-decoration: underline; }
+  .hero h1 { font-size: clamp(3rem, 8vw, 6.4rem); margin-top: 54px; letter-spacing: .02em; }
+  .hero h1 em { font-style: normal; color: var(--lluvia); }
+  .hero .tag { font-size: clamp(1.4rem, 3vw, 2.1rem); font-weight: 700; max-width: 26ch; margin: 18px 0 14px; line-height: 1.2; }
+  .hero p.lead { font-size: clamp(1.1rem, 2vw, 1.35rem); max-width: 58ch; color: var(--muted); margin-bottom: 32px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 16px 28px; border-radius: 99px; font-weight: 700; text-decoration: none; border: 3px solid var(--brand); cursor: pointer; font-size: 1.05rem; }
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.ghost { background: #fff; color: var(--brand-ink); margin-left: 10px; }
+
+  /* problem */
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 34px; }
+  .fact { border: 3px solid var(--ink); border-radius: var(--radius); padding: 26px; background: #fff; }
+  .fact b { display: block; font-size: clamp(2.2rem, 4vw, 3.2rem); letter-spacing: -.03em; color: var(--warn); line-height: 1; margin-bottom: 10px; }
+  .fact span { font-size: 1.05rem; }
+  .fact small { display: block; color: var(--muted); font-size: .85rem; margin-top: 8px; }
+  .spark { margin-top: 34px; border-left: 8px solid var(--lluvia); padding: 16px 24px; background: #fff; border-radius: 0 var(--radius) var(--radius) 0; font-size: 1.2rem; max-width: 70ch; }
 
   /* flow */
-  .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-top: 36px; counter-reset: s; }
-  .step { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 24px; counter-increment: s; }
-  .step::before { content: counter(s); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--brand); color: #fff; font-weight: 700; margin-bottom: 16px; }
-  .step h3 { font-size: 1.15rem; margin-bottom: 6px; }
-  .step p { color: var(--muted); font-size: .96rem; }
-  .sub { color: var(--muted); max-width: 62ch; }
+  .stages { display: grid; gap: 22px; margin-top: 36px; }
+  .stage-row { border: 3px solid var(--c); border-radius: var(--radius); background: #fff; overflow: hidden; }
+  .stage-row > h3 { background: var(--c); color: #fff; padding: 12px 22px; font-size: 1.05rem; letter-spacing: .06em; text-transform: uppercase; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .step { padding: 22px; position: relative; border-right: 2px dashed var(--rule); }
+  .step:last-child { border-right: 0; }
+  .step i { font-style: normal; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--c); color: #fff; font-weight: 700; margin-bottom: 10px; }
+  .step h4 { font-size: 1.25rem; margin-bottom: 4px; }
+  .step p { color: var(--muted); font-size: 1rem; }
+  .step:not(:last-child)::after { content: "➜"; position: absolute; right: -14px; top: 50%; transform: translateY(-50%); font-size: 1.6rem; color: var(--c); background: #fff; line-height: 1; z-index: 2; }
+  @media (max-width: 800px) { .steps { grid-template-columns: 1fr; } .step { border-right: 0; border-bottom: 2px dashed var(--rule); } .step:not(:last-child)::after { content: "⬇"; right: auto; left: 50%; top: auto; bottom: -16px; transform: translateX(-50%); } }
+  .loop { text-align: center; font-weight: 700; color: var(--aprende); border: 3px dashed var(--aprende); border-radius: 99px; padding: 12px 20px; background: #fff; }
 
   /* demo */
-  #demo { background: var(--surface); border-block: 1px solid var(--rule); }
-  .badge { display: inline-block; background: var(--sun); color: #2b2200; font-weight: 700; font-size: .8rem; padding: 3px 11px; border-radius: 99px; }
-  .stage { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; margin-top: 30px; }
-  @media (max-width: 880px) { .stage { grid-template-columns: 1fr; } }
-  .card { border: 1px solid var(--rule); border-radius: var(--radius); background: var(--bg); overflow: hidden; }
-  .mapbox { position: relative; background: var(--map); }
-  #map { height: min(78vh, 640px); min-height: 420px; background: var(--map); }
+  .badge { display: inline-block; background: var(--sun); color: #231a00; font-weight: 700; font-size: .85rem; padding: 4px 12px; border-radius: 99px; vertical-align: middle; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin: 26px 0 8px; }
+  .stat { border: 3px solid var(--ink); border-radius: var(--radius); padding: 16px 20px; background: #fff; }
+  .stat b { display: block; font-size: 2.1rem; letter-spacing: -.03em; color: var(--brand-ink); }
+  .stat span { color: var(--muted); font-size: .95rem; }
+  .stage { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; margin-top: 22px; }
+  @media (max-width: 920px) { .stage { grid-template-columns: 1fr; } }
+  .card { border: 3px solid var(--ink); border-radius: var(--radius); background: #fff; overflow: hidden; }
+  .mapbox { position: relative; background: #eef1ee; }
+  #map { height: min(80vh, 680px); min-height: 440px; background: #eef1ee; }
   .mapbox .daytag, .mapbox .legend, .mapbox .views { z-index: 1100; }
-  .views { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; }
-  .views button { border: 0; border-radius: 99px; padding: 8px 14px; font-weight: 700; font-size: .82rem; cursor: pointer; background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--ink); box-shadow: 0 1px 4px #0003; }
-  .views button.on { background: var(--brand); color: #fff; }
-  .mapbox .leaflet-top.leaflet-right { top: 46px; }  /* zoom buttons under the view buttons */
-  @media (max-width: 560px) { .views { top: 64px; left: 12px; right: auto; } }
+  .daytag { position: absolute; top: 12px; left: 12px; font: 700 1.7rem/1 ui-monospace, monospace; background: #fff; border: 2px solid var(--ink); padding: 8px 14px; border-radius: 12px; }
+  .views { position: absolute; bottom: 12px; right: 12px; display: flex; gap: 6px; }
+  .views button { border: 2px solid var(--ink); border-radius: 99px; padding: 9px 16px; font-weight: 700; font-size: .9rem; cursor: pointer; background: #fff; color: var(--ink); }
+  .views button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .legend { position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .85rem; background: #fff; border: 2px solid var(--ink); padding: 8px 12px; border-radius: 12px; max-width: min(46%, 520px); }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; border: 1px solid #0b3d1f; }
   .leaflet-container { font-family: inherit; }
-  .legend { position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .78rem; background: color-mix(in srgb, var(--surface) 88%, transparent); padding: 8px 12px; border-radius: 12px; }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
-  .daytag { position: absolute; top: 12px; left: 12px; font: 700 1.5rem/1 ui-monospace, monospace; background: color-mix(in srgb, var(--surface) 88%, transparent); padding: 8px 14px; border-radius: 12px; }
-  .controls { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-top: 1px solid var(--rule); background: var(--surface); }
-  .controls button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--brand); color: #fff; font-size: 1.1rem; cursor: pointer; flex: none; }
-  .controls input { flex: 1; accent-color: var(--brand); }
-  .controls label { font-size: .85rem; color: var(--muted); }
-  .side { display: grid; gap: 18px; align-content: start; }
-  .panel { padding: 18px 20px; }
-  .panel h3 { font-size: 1rem; margin-bottom: 10px; }
+  .controls { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-top: 3px solid var(--ink); background: #fff; }
+  .controls button { width: 50px; height: 50px; border-radius: 50%; border: 0; background: var(--brand); color: #fff; font-size: 1.2rem; cursor: pointer; flex: none; }
+  .controls input { flex: 1; accent-color: var(--brand); height: 28px; }
+  .controls label { font-size: .9rem; color: var(--muted); }
+  .side { display: grid; gap: 20px; align-content: start; }
+  .panel { padding: 20px 22px; }
+  .panel h3 { font-size: 1.1rem; margin-bottom: 12px; }
   .versus { display: grid; gap: 12px; }
-  .bar { font-size: .88rem; }
   .bar .row { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 4px; }
-  .bar .track { height: 12px; border-radius: 99px; background: var(--rule); overflow: hidden; }
+  .bar .track { height: 16px; border-radius: 99px; background: #e3e8e4; overflow: hidden; border: 1px solid var(--rule); }
   .bar .fill { height: 100%; border-radius: 99px; transition: width .35s; }
-  .fill.g { background: var(--brand); } .fill.r { background: #8a948d; }
-  .tiers { display: grid; gap: 6px; margin: 14px 0 4px; font-size: .86rem; }
+  .fill.g { background: var(--brand); } .fill.r { background: #7d8a81; }
+  .tiers { display: grid; gap: 6px; margin: 14px 0 4px; font-size: .95rem; }
   .tiers div { display: flex; justify-content: space-between; gap: 10px; }
-  .tiers i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
-  .big { font-size: 2.1rem; font-weight: 700; letter-spacing: -.03em; color: var(--brand); }
-  .note { color: var(--muted); font-size: .85rem; margin-top: 6px; }
-  .phone { background: #0b0f0d; border-radius: 26px; padding: 10px; margin: 0 auto; width: min(100%, 330px); }
-  .phone .scr { background: #f2f2f0; border-radius: 18px; padding: 12px; height: 270px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; }
-  .sms { background: #fff; color: #111; border-radius: 14px 14px 14px 4px; padding: 8px 11px; font-size: .78rem; line-height: 1.35; box-shadow: 0 1px 2px #0002; animation: pop .35s; word-break: break-word; }
-  .sms small { display: block; color: #6b6f6c; font-size: .68rem; margin-bottom: 2px; }
-  .sms.high { border-left: 4px solid var(--warn); } .sms.medium { border-left: 4px solid var(--sun); } .sms.low { border-left: 4px solid #6aa7e0; }
+  .tiers i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; border: 1px solid #0b3d1f; }
+  .big { font-size: 2.2rem; font-weight: 700; letter-spacing: -.03em; color: var(--brand-ink); }
+  .note { color: var(--muted); font-size: .95rem; margin-top: 6px; }
+  .phone { background: #e6ebe7; border: 3px solid var(--ink); border-radius: 28px; padding: 10px; margin: 0 auto; width: min(100%, 340px); }
+  .phone .scr { background: #fff; border-radius: 18px; padding: 12px; height: 280px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; }
+  .sms { background: #f1f4f2; color: #111; border: 1px solid var(--rule); border-radius: 14px 14px 14px 4px; padding: 8px 11px; font-size: .82rem; line-height: 1.35; animation: pop .35s; word-break: break-word; }
+  .sms small { display: block; color: #4a554d; font-size: .72rem; margin-bottom: 2px; }
+  .sms.high { border-left: 6px solid var(--warn); } .sms.medium { border-left: 6px solid var(--sun); } .sms.low { border-left: 6px solid #4a90d9; }
   @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.97); } }
-  .empty { color: #777; text-align: center; font-size: .85rem; margin: auto; }
+  .empty { color: #4a554d; text-align: center; margin: auto; }
 
-  /* curve */
-  .curve { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: center; margin-top: 30px; }
+  /* model + architecture */
+  .curve { display: grid; grid-template-columns: 1.2fr 1fr; gap: 30px; align-items: center; margin-top: 30px; }
   @media (max-width: 800px) { .curve { grid-template-columns: 1fr; } }
-  svg.chart { width: 100%; height: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); }
-  svg text { fill: var(--muted); font: 12px system-ui; }
-  .callout { border-left: 4px solid var(--sun); background: var(--surface); padding: 18px 22px; border-radius: 0 var(--radius) var(--radius) 0; margin-top: 30px; }
-  .callout b { display: block; margin-bottom: 4px; }
-  .arch { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 26px 0; }
-  .arch .card { background: var(--surface); }
-  .archimg { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: var(--radius); background: #fff; }
-  footer { padding: 40px 0 60px; color: var(--muted); font-size: .9rem; }
+  svg.chart { width: 100%; height: auto; background: #fff; border: 3px solid var(--ink); border-radius: var(--radius); }
+  svg text { fill: var(--muted); font: 13px system-ui; }
+  .arch { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin: 28px 0; }
+  .archimg { display: block; width: 100%; height: auto; border: 3px solid var(--ink); border-radius: var(--radius); background: #fff; }
+  footer { padding: 44px 0 64px; border-top: 1px solid var(--rule); color: var(--muted); }
+  footer b { color: var(--brand-ink); letter-spacing: .08em; }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
 </style>
 </head>
@@ -114,48 +124,84 @@
 <header class="hero">
   <div class="wrap">
     <nav>
-      <b>Gusan<span>ito</span></b>
-      <div><a href="#como">Cómo funciona</a><a href="#demo">Simulación</a><a href="#modelo">El modelo</a><a href="#arquitectura">Arquitectura</a></div>
+      <b>BRA<span>SA</span></b>
+      <div><a href="#problema">El problema</a><a href="#como">Cómo funciona</a><a href="#demo">Demo</a><a href="#modelo">El modelo</a><a href="#arquitectura">Arquitectura</a></div>
     </nav>
-    <h1>Encontrar el gusano <em>antes</em> de que llegue al maíz.</h1>
-    <p class="lead">En la estación seca el gusano cogollero sobrevive en pocos parches verdes. Un satélite los señala, un extensionista los confirma con una foto y un SMS avisa a los agricultores cercanos, aunque no tengan datos.</p>
-    <div class="ctas"><a class="btn primary" href="#demo">▶ Ver la simulación</a><a class="btn ghost" href="#como">Cómo funciona</a></div>
-    <div class="stats" id="heroStats"></div>
+    <h1>BRASA</h1>
+    <p class="tag">Encontrar al gusano cogollero <em>antes</em> de que llegue al maíz.</p>
+    <p class="lead">Un satélite descubre dónde sobrevive la plaga en la estación seca, un extensionista lo confirma con una foto y un SMS avisa a las familias cercanas, aunque no tengan datos.</p>
+    <a class="btn primary" href="#demo">▶ Ver la demo</a><a class="btn ghost" href="#problema">El problema</a>
   </div>
 </header>
 
-<section id="como">
+<section id="problema">
+  <div class="wrap">
+    <div class="eyebrow">El problema</div>
+    <h2>Se actúa cuando el daño ya es visible</h2>
+    <p class="sub">El gusano cogollero ataca el maíz de millones de pequeños productores en África cada temporada. Todo el control actual es reactivo.</p>
+    <div class="facts">
+      <div class="fact"><b>4–18 M t</b><span>de maíz perdidas al año en 12 países africanos</span><small>Estimación de CABI (USD 1.000 a 4.600 millones)</small></div>
+      <div class="fact"><b>35 %</b><span>del maíz pierden los agricultores de Zambia</span><small>Pérdida reportada por los propios agricultores</small></div>
+      <div class="fact"><b>2–3 gen.</b><span>de plaga ya pasaron cuando el agricultor la reconoce</span><small>Para entonces está en todo el paisaje</small></div>
+    </div>
+    <p class="spark"><b>El reservorio es la chispa que queda en las brasas.</b> En la estación seca la plaga sobrevive en pocos parches verdes; con las lluvias sale de ahí hacia el maíz nuevo. Si se la encuentra en ese momento, se frena donde todavía es poca.</p>
+  </div>
+</section>
+
+<section id="como" class="alt">
   <div class="wrap">
     <div class="eyebrow">Cómo funciona</div>
-    <h2>Del satélite al teléfono del agricultor</h2>
-    <p class="sub">Cuatro pasos, pensados para zonas con poca señal: la app funciona sin conexión y el aviso llega por SMS.</p>
-    <div class="flow">
-      <div class="step"><h3>El satélite propone</h3><p>Sentinel-2 y el clima de la estación seca revelan parches que siguen verdes: los posibles reservorios. El modelo les da una probabilidad.</p></div>
-      <div class="step"><h3>El extensionista confirma</h3><p>Visita el parche, hace una foto y la app la guarda aunque no haya señal. Se envía cuando vuelve la conexión.</p></div>
-      <div class="step"><h3>Claude lee la foto</h3><p>Responde sí o no con su confianza. Ese veredicto es la etiqueta con la que se reentrena el modelo.</p></div>
-      <div class="step"><h3>Un SMS avisa</h3><p>Los agricultores a menos de 10 km reciben un texto corto en su idioma, con urgencia alta, media o baja según lo cerca que esté el reservorio, con un enlace que dibuja los reservorios en el mapa sin datos.</p></div>
+    <h2>Nueve pasos, tres momentos</h2>
+    <p class="sub">Detectar y verificar en la estación seca; actuar cuando llegan las lluvias; y aprender de cada temporada.</p>
+    <div class="stages">
+      <div class="stage-row" style="--c: var(--seca)">
+        <h3>🌾 Estación seca · Detectar</h3>
+        <div class="steps">
+          <div class="step"><i>1</i><h4>Detectar</h4><p>Satélite y clima encuentran parches verdes.</p></div>
+          <div class="step"><i>2</i><h4>Calificar</h4><p>El modelo de ML estima la probabilidad de reservorio.</p></div>
+          <div class="step"><i>3</i><h4>Planificar</h4><p>Mapa y ruta en la app del extensionista.</p></div>
+        </div>
+      </div>
+      <div class="stage-row" style="--c: var(--seca)">
+        <h3>🔍 Estación seca · Verificar</h3>
+        <div class="steps">
+          <div class="step"><i>4</i><h4>Verificar</h4><p>El extensionista visita el parche y saca fotos.</p></div>
+          <div class="step"><i>5</i><h4>Analizar</h4><p>Claude busca señales del gusano en las fotos.</p></div>
+          <div class="step"><i>6</i><h4>Confirmar</h4><p>Reservorio confirmado o descartado.</p></div>
+        </div>
+      </div>
+      <div class="stage-row" style="--c: var(--lluvia)">
+        <h3>🌧️ Lluvias · Actuar</h3>
+        <div class="steps">
+          <div class="step"><i>7</i><h4>Vigilar</h4><p>El radar detecta maíz nuevo cerca.</p></div>
+          <div class="step"><i>8</i><h4>Alertar</h4><p>SMS, voz o radio a las familias en riesgo.</p></div>
+          <div class="step" style="--c: var(--aprende)"><i>9</i><h4>Aprender</h4><p>Se compara lo predicho y se reentrena el modelo.</p></div>
+        </div>
+      </div>
+      <div class="loop">↺ Cada temporada mejora el modelo</div>
     </div>
   </div>
 </section>
 
 <section id="demo">
   <div class="wrap">
-    <div class="eyebrow">Simulación</div>
-    <h2>Quince días en la zona de Chimunsi <span class="badge">datos sintéticos</span></h2>
-    <p class="sub">Cada punto verde es una predicción real del modelo sobre imágenes de Sentinel-2, con su probabilidad (pasa el cursor). Aleja el mapa para ver cuánto se extiende; fuera de la zona piloto son extrapolaciones, porque el modelo solo aprendió de ella. Lo sintético son los datos de prueba: si cada parche tiene gusano de verdad, los agricultores y las visitas. Las visitas confirmadas no se dibujan: solo sirven para reentrenar el modelo cada día. Dos equipos hacen las mismas visitas frente a los mismos resultados: uno sigue el ranking del modelo y el otro va al azar.</p>
+    <div class="eyebrow">Demo</div>
+    <h2>Quince días en Zambia <span class="badge">datos de demostración</span></h2>
+    <p class="sub">Cada punto verde es una predicción del modelo sobre imágenes satelitales, con su probabilidad: pasa el cursor. En el día 14 aparece todo Zambia.</p>
+    <div class="stats" id="demoStats"></div>
 
     <div class="stage">
       <div class="card">
         <div class="mapbox">
-          <div id="map" role="img" aria-label="Mapa de Zambia con parches, visitas y agricultores"></div>
-          <div class="views"><button id="vNear" class="on">Chimunsi</button><button id="vMid">Región</button><button id="vFar">Toda Zambia</button></div>
+          <div id="map" role="img" aria-label="Mapa de Zambia con los puntos que señala el modelo y las familias avisadas"></div>
           <div class="daytag" id="daytag">Día 0</div>
+          <div class="views"><button id="vNear" class="on">Chimunsi</button><button id="vMid">Región</button><button id="vFar">Toda Zambia</button></div>
           <div class="legend">
-            <b id="wideNote" style="flex-basis:100%;font-weight:400;color:var(--muted)"></b>
+            <b id="wideNote" style="flex-basis:100%"></b>
             <span><i style="background:#17893f"></i>Alta ≥ 90 %</span>
             <span><i style="background:#5fbf7f"></i>Media 80–90 %</span>
             <span><i style="background:#b6e3c4"></i>Baja 70–80 %</span>
-            <span><i style="background:#d9480f"></i>Agricultor: urgencia alta</span>
+            <span><i style="background:#c2410c"></i>Familia: urgencia alta</span>
             <span><i style="background:#e8b931"></i>media</span>
             <span><i style="background:#4a90d9"></i>baja</span>
             <span><i style="background:#9aa39c"></i>sin aviso</span>
@@ -170,30 +216,29 @@
 
       <div class="side">
         <div class="card panel">
-          <h3>Visitas de verificación (datos de prueba sintéticos)</h3>
+          <h3>Visitas de verificación</h3>
           <div class="versus">
             <div class="bar"><div class="row"><span>Siguiendo el modelo</span><span id="gTxt"></span></div><div class="track"><div class="fill g" id="gBar"></div></div></div>
             <div class="bar"><div class="row"><span>Sin modelo (al azar)</span><span id="rTxt"></span></div><div class="track"><div class="fill r" id="rBar"></div></div></div>
           </div>
           <div id="tiers" class="tiers"></div>
-          <div class="big" id="lift" style="margin-top:14px"></div>
+          <div class="big" id="lift" style="margin-top:12px"></div>
           <p class="note" id="liftNote"></p>
         </div>
         <div class="card panel">
-          <h3>SMS enviados hoy: <span id="smsCount">0</span> · agricultores avisados: <span id="reached">0</span></h3>
+          <h3>SMS enviados hoy: <span id="smsCount">0</span> · familias avisadas: <span id="reached">0</span></h3>
           <div class="phone"><div class="scr" id="phone"></div></div>
         </div>
       </div>
     </div>
-    <div class="callout"><b>Cómo leer esta simulación</b>Las predicciones son del modelo, pero lo que se compara con ellas (si hay gusano de verdad) se simuló con una regla oculta que el modelo puede aprender. Sirve para ver el flujo y que los niveles de confianza ordenan bien el riesgo; no demuestra puntería en campo, que se medirá con las fotos verificadas.</div>
   </div>
 </section>
 
-<section id="modelo">
+<section id="modelo" class="alt">
   <div class="wrap">
     <div class="eyebrow">El modelo</div>
-    <h2>Mejora con cada foto verificada</h2>
-    <p class="sub">Probamos antes un modelo entrenado con registros de campo de seis países de África oriental (AUC 0,73 en validación espacial). No se transfiere bien a países que no ha visto, así que este modelo es local y específico de Zambia: aprende de sus propios parches y de las fotos que verifiquen sus extensionistas. Cada versión se entrena con más parches verificados y solo se publica si supera a la anterior en un conjunto de parches que nunca ve al entrenar.</p>
+    <h2>Mejora con cada foto verificada <span class="badge">datos de demostración</span></h2>
+    <p class="sub">Cada versión se entrena con más parches verificados y solo se publica si supera a la anterior en parches que nunca ve al entrenar. Es un modelo local, hecho para Zambia.</p>
     <div class="curve">
       <svg class="chart" id="curve" viewBox="0 0 520 320" role="img" aria-label="AUC por versión del modelo"></svg>
       <div id="curveText"></div>
@@ -205,16 +250,16 @@
   <div class="wrap">
     <div class="eyebrow">Arquitectura</div>
     <h2>Cómo está desplegado</h2>
-    <p class="sub">Todo corre en Azure: la app se sirve como sitio estático, el back-end y el motor de alertas son Azure Functions y el modelo se reentrena en Azure ML. El diagrama enseña dos ciclos.</p>
+    <p class="sub">Todo en Azure: la app se sirve como sitio estático, el back-end y el motor de alertas son Azure Functions, y el modelo se reentrena en Azure ML.</p>
     <div class="arch">
-      <div class="card panel"><h3>1 · El modelo mejora</h3><p class="note" style="margin:0">Una foto llega al back-end, Claude da el veredicto, ese veredicto queda como etiqueta y el entrenamiento publica una capa nueva que el mapa del teléfono recibe.</p></div>
-      <div class="card panel"><h3>2 · Se avisa a quien corresponde</h3><p class="note" style="margin:0">Con un reporte verificado, el motor de alertas decide a qué agricultores avisar según la distancia al reservorio y arma el SMS con un enlace que funciona sin datos.</p></div>
+      <div class="card panel"><h3>1 · El modelo mejora</h3><p class="note" style="margin:0">Una foto llega al back-end, Claude da el veredicto, queda como etiqueta y el entrenamiento publica una capa nueva que recibe el mapa del teléfono.</p></div>
+      <div class="card panel"><h3>2 · Se avisa a quien corresponde</h3><p class="note" style="margin:0">Con un reporte verificado, el motor de alertas decide a qué familias avisar según la distancia al reservorio y arma un SMS con un enlace que funciona sin datos.</p></div>
     </div>
     <a href="diagrama-despliegue.png" target="_blank" rel="noopener"><img class="archimg" src="diagrama-despliegue.png" alt="Diagrama de despliegue: teléfono, Azure Static Web Apps, back-end y motor de alertas en Azure Functions, Azure ML, bases de datos y APIs externas"></a>
   </div>
 </section>
 
-<footer><div class="wrap">Gusanito · prototipo de hackathon. Todo lo que ves en la simulación corre en local con datos sintéticos; los SMS son los que generaría el motor de alertas real, con la urgencia ajustada a la cercanía del reservorio, y ninguno sale de esta máquina. La demo se presenta en Santiago con teléfonos chilenos; el problema que resuelve es el de Zambia.</div></footer>
+<footer><div class="wrap"><b>BRASA</b> · Alerta temprana del gusano cogollero en Zambia. Prototipo de hackathon: la demo corre con datos de demostración y ningún SMS sale del equipo.</div></footer>
 
 <script src="/vendor/leaflet.js"></script>
 <script src="/vendor/protomaps-leaflet.js"></script>
@@ -229,11 +274,10 @@ fetch('/landing/data.json').then(r => r.json()).then(d => { D = d; init(); }).ca
 
 function init() {
   const last = D.timeline[D.timeline.length - 1];
-  $('heroStats').innerHTML = [
-    [D.patches.length.toLocaleString('es'), 'parches verdes de estación seca analizados (sin bosque, agua ni verde todo el año)'],
-    [D.layerSize, 'puntos con probabilidad ≥ 70 % (modelo)'],
-    [`${Math.round(D.layerRate * 100)}% vs ${Math.round(D.baseRate * 100)}%`, 'con larvas entre los puntos señalados, frente a un parche al azar (datos de prueba sintéticos)'],
-    [new Set(D.timeline.flatMap(t => t.sms.map(s => s.phone))).size, 'agricultores avisados en 15 días (simulado)'],
+  $('demoStats').innerHTML = [
+    [D.patches.length.toLocaleString('es'), 'parches verdes de estación seca analizados en la zona piloto'],
+    [`${Math.round(D.layerRate * 100)} % vs ${Math.round(D.baseRate * 100)} %`, 'con larvas entre los puntos que señala el modelo, frente a un parche al azar'],
+    [new Set(D.timeline.flatMap(t => t.sms.map(s => s.phone))).size, 'familias avisadas por SMS en la simulación'],
   ].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
 
   initMap();
@@ -277,7 +321,7 @@ const PointsLayer = L.Layer.extend({
     for (const v of this._vis || []) { const d = (v[0] - x) ** 2 + (v[1] - y) ** 2; if (d < bd) { bd = d; best = v[2]; } }
     if (!best) return this._map.closeTooltip(this._tip);
     const tier = GREEN.find(t => best[3] >= t[0]);
-    this._tip.setLatLng([best[1], best[2]]).setContent(`<b>${Math.round(best[3] * 100)} %</b> de probabilidad · confianza ${tier[2]}<br>${best[0]} · ${best[4]} ha<br><i>Fuera de la zona de entrenamiento piloto: extrapolación</i>`);
+    this._tip.setLatLng([best[1], best[2]]).setContent(`<b>${Math.round(best[3] * 100)} %</b> de probabilidad · confianza ${tier[2]}<br>${best[0]} · ${best[4]} ha`);
     this._map.openTooltip(this._tip);
   },
 });
@@ -294,7 +338,7 @@ function initMap() {
   const la = D.patches.map(p => p[1]), lo = D.patches.map(p => p[2]);
   pilotBox = L.rectangle([[Math.min(...la), Math.min(...lo)], [Math.max(...la), Math.max(...lo)]],
     { color: '#d9480f', weight: 2, fill: false, dashArray: '6 5' }).addTo(map);
-  pilotBox.bindTooltip(`Zona piloto · ${D.patches.length.toLocaleString('es')} parches · ≈0,25 % de Zambia`, { permanent: false, direction: 'top' });
+  pilotBox.bindTooltip(`Zona piloto · ${D.patches.length.toLocaleString('es')} parches`, { permanent: false, direction: 'top' });
   patchMk = new Map(D.patches.map(([id, lat, lon, ha]) => {
     const m = L.circleMarker([lat, lon], { weight: 1, color: '#0b3d1f', fillOpacity: .85 }).addTo(map);
     m.bindTooltip('', { direction: 'top', offset: [0, -4] });
@@ -308,7 +352,7 @@ function initMap() {
     const inPilot = new Set(D.patches.map(p => p[0]));
     const pts = w.points.filter(p => !inPilot.has(p[0]));
     wideLayer = new PointsLayer(pts);
-    wideText = `Modelo nacional (${w.model}): ${pts.length.toLocaleString('es')} puntos más, en ${w.tiles} de ${w.tilesTotal} celdas de Zambia ya procesadas (el resto, pendiente).`;
+    wideText = `${(pts.length + D.patches.length).toLocaleString('es')} puntos señalados en Zambia`;
     show(day);
   });
   map.on('zoomend', () => show(day));
@@ -334,7 +378,7 @@ function show(n) {
     const last = n === D.timeline.length - 1;
     if (last && !map.hasLayer(wideLayer)) wideLayer.addTo(map);
     if (!last && map.hasLayer(wideLayer)) map.removeLayer(wideLayer);
-    $('wideNote').textContent = last ? wideText : 'Llega al día 14 para ver el modelo en todo Zambia.';
+    $('wideNote').textContent = last ? wideText : 'Llega al día 14 para ver todo Zambia';
   }
   const COL = { high: '#d9480f', medium: '#e8b931', low: '#4a90d9' }, ORDER = ['high', 'medium', 'low'];
   const best = new Map(); // farmer -> most urgent level received so far
@@ -355,11 +399,11 @@ function show(n) {
     $('lift').textContent = `×${(t.found.guided / Math.max(t.found.random, 1)).toFixed(2)} larvas por visita`;
     $('liftNote').textContent = `${gs} visitas por equipo. Al azar se acierta en un ${Math.round(100 * t.found.random / rs)}% de las visitas; con el modelo, en un ${Math.round(100 * t.found.guided / gs)}%.`;
   } else {
-    $('lift').textContent = 'Aún sin visitas'; $('liftNote').textContent = 'El día 0 solo existe la predicción del satélite.';
+    $('lift').textContent = 'Día 0'; $('liftNote').textContent = 'Solo existe la predicción del satélite.';
   }
 
   const names = ['Baja 70–80 %', 'Media 80–90 %', 'Alta ≥ 90 %'], cols = ['#b6e3c4', '#5fbf7f', '#17893f'];
-  $('tiers').innerHTML = '<b>Si se verificaran todos los puntos de cada nivel:</b>' + t.tiers.map((x, i) =>
+  $('tiers').innerHTML = '<b>Cuántos puntos de cada nivel tienen larvas:</b>' + t.tiers.map((x, i) =>
     `<div><span><i style="background:${cols[i]}"></i>${names[i]} · ${x.n} puntos</span><b>${x.rate === null ? '–' : Math.round(x.rate * 100) + ' % con larvas'}</b></div>`).join('');
   $('smsCount').textContent = t.sms.length; $('reached').textContent = alerted.size;
   const lvl = { high: 'Alto', medium: 'Medio', low: 'Bajo' };
@@ -393,9 +437,8 @@ function drawCurve() {
   const f = c[c.length - 1];
   $('curveText').innerHTML = `<div class="big">${c[0].auc.toFixed(2)} → ${f.auc.toFixed(2)}</div>
     <p class="sub" style="margin-top:8px">AUC sobre parches reservados, de ${c[0].n} a ${f.n} parches verificados (puntos huecos: versiones que no superaron a la anterior y no se publicaron).</p>
-    <p class="note">Las etiquetas de esta curva también son simuladas. En producción cada etiqueta sería el veredicto de Claude sobre la foto de un extensionista.</p>`;
+`;
 }
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => D && drawCurve());
 </script>
 </body>
 </html>

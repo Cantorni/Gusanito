@@ -1,6 +1,6 @@
 {
-  "name": "Gusanito – Mapa de Punto",
-  "short_name": "Gusanito",
+  "name": "BRASA – Mapa de reservorios",
+  "short_name": "BRASA",
   "description": "Grafica coordenadas en un mapa con zona verde y distancia.",
   "start_url": "/",
   "display": "standalone",

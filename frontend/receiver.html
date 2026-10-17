@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Gusanito – Receptor</title>
+<title>BRASA – Receptor</title>
 <style>
   @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-display: swap; src: url(vendor/fonts/atkinson-400.woff2) format("woff2"); }
   @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; font-display: swap; src: url(vendor/fonts/atkinson-700.woff2) format("woff2"); }
@@ -129,7 +129,7 @@ const view = () => VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'rep
 
 async function load() {
   const name = view(), v = VIEWS[name];
-  document.title = `Gusanito – ${v.title}`;
+  document.title = `BRASA – ${v.title}`;
   document.getElementById('title').textContent = v.title;
   document.querySelectorAll('nav a').forEach(a =>
     a.dataset.view === name ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
