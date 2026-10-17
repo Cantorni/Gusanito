@@ -1,6 +1,6 @@
 // Gusanito Service Worker: offline app shell + offline Zambia vector map (PMTiles) + reservoirs layer
 // + Background Sync of the write queue (queue.js).
-const CACHE = 'gusanito-v16';
+const CACHE = 'gusanito-v17';
 // API data kept for offline use. Not tied to the app version, so a CACHE bump keeps the last layer.
 const DATA = 'gusanito-data';
 const LATEST_RESERVOIRS = '/api/reservoirs?latest';
