@@ -106,23 +106,25 @@ def test_local_runner_serves_function_app(repo):
             assert json.load(r)["status"] == "dado_de_baja"
         with urllib.request.urlopen(f"{base}/reservoirs?bbox=33.4,-13.1,33.6,-12.9") as r:
             assert [f["id"] for f in json.load(r)["features"]] == ["kasungu-0042"]
-        with pytest.raises(urllib.error.HTTPError) as e:
-            urllib.request.urlopen(f"{base}/reports")
+        with urllib.request.urlopen(f"{base}/reports") as r:
+            assert json.load(r) == []
+        with pytest.raises(urllib.error.HTTPError) as e:  # drafting alerts with Claude still needs the token
+            urllib.request.urlopen(urllib.request.Request(f"{base}/alerts/message", data=b"{}", method="POST"))
         assert e.value.code == 401
     finally:
         server.shutdown()
 
 
-def test_outbox_lists_alert_sms_newest_first_with_token(repo):
+def test_outbox_lists_alert_sms_newest_first_with_masked_phones(repo):
     subscribe()
     day1, day2 = "2026-09-15T07:00:00+00:00", "2026-09-16T07:00:00+00:00"
     for id_, risk, km, sent in [("old", "high", 1.0, day1), ("far", "low", 8.0, day2), ("near", "medium", 3.0, day2),
                                 ("nearest", "medium", 2.5, day2)]:
         repo.add_outbox({"id": id_, "phone": f"+26097100000{len(id_)}", "riskLevel": risk, "distanceKm": km,
                          "sms": id_, "sentAt": sent})
-    assert call(function_app.list_outbox)[0] == 401
-    status, body, _ = call(function_app.list_outbox, headers={"x-report-token": TOKEN})
+    status, body, _ = call(function_app.list_outbox)
     assert status == 200 and [m["id"] for m in body] == ["nearest", "near", "far", "old"]
+    assert body[0]["phone"] == "+260…0007" and repo.list_outbox()[0]["phone"].startswith("+26097100000")
 
 
 def test_demo_reports_are_not_training_labels(monkeypatch):

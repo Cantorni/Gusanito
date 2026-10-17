@@ -3,7 +3,7 @@ app's storage.
 
 Usage (from backend/):
     .venv/bin/python tools/publish_layer.py ../ml/out/reservoirs/current.geojson    # local SQLite
-    DATA_STORAGE_ACCOUNT=<account> .venv/bin/python tools/publish_layer.py FILE      # Azure (az login)
+    DATA_STORAGE_CONNECTION_STRING=... .venv/bin/python tools/publish_layer.py FILE      # Azure (terraform output storage_connection_string)
 
 Storage as in tools/run_alerts.py: SQLITE_PATH (default data/gusanito.db), or DATA_STORAGE_CONNECTION_STRING /
 DATA_STORAGE_ACCOUNT.

@@ -151,6 +151,23 @@ class Repository:
         rows = table.query_entities("sentAt ge @since", parameters={"since": since}) if since else table.list_entities()
         return sorted((_from_row(e, "id") for e in rows), key=lambda m: m["sentAt"])
 
+    # Demo resets only (tools/reset_demo.py): the app never deletes.
+    def clear_outbox(self) -> int:
+        table = self._table(OUTBOX_TABLE)
+        rows = list(table.list_entities(select=["PartitionKey", "RowKey"]))
+        for e in rows:
+            table.delete_entity(e["PartitionKey"], e["RowKey"])
+        return len(rows)
+
+    def delete_report(self, report: dict[str, Any]) -> None:
+        self._ensure()
+        for photo in report.get("photos") or []:
+            try:
+                self._blobs.get_blob_client(PHOTOS_CONTAINER, photo["file"]).delete_blob()
+            except ResourceNotFoundError:
+                pass
+        self._table().delete_entity(_partition(report), report["id"])
+
 
 def _to_row(item: dict[str, Any], partition: str, key: str) -> dict[str, Any]:
     entity = {k: json.dumps(v) if k in _JSON_FIELDS else v for k, v in item.items() if v is not None}
@@ -270,6 +287,14 @@ class SqliteRepository:
     def list_outbox(self, since: str | None = None) -> list[dict[str, Any]]:
         rows = self._all("SELECT doc FROM outbox WHERE sent_at >= ? ORDER BY sent_at", since or "")
         return [json.loads(r[0]) for r in rows]
+
+    def clear_outbox(self) -> int:
+        return self._write("DELETE FROM outbox")
+
+    def delete_report(self, report: dict[str, Any]) -> None:
+        for photo in report.get("photos") or []:
+            self._write("DELETE FROM photos WHERE name = ?", photo["file"])
+        self._write("DELETE FROM reports WHERE id = ?", report["id"])
 
 
 def _report(doc: str) -> dict[str, Any]:

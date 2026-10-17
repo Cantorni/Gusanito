@@ -5,7 +5,7 @@ is replaced and each farmer is stored by phone.
 
 Usage (from backend/):
     .venv/bin/python tools/seed_demo.py                                     # local SQLite, data/gusanito.db
-    DATA_STORAGE_ACCOUNT=<account> .venv/bin/python tools/seed_demo.py      # Azure (az login)
+    DATA_STORAGE_CONNECTION_STRING=... .venv/bin/python tools/seed_demo.py      # Azure (terraform output storage_connection_string)
 
 Storage as in tools/run_alerts.py. The phone numbers are made up and nothing is sent: on Azure the SMS sender
 is simulated (SMS_SENDER is not set).

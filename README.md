@@ -17,7 +17,7 @@ flowchart LR
   Queue --> Worker[analyze_report]
   Worker -->|photos| Claude[Claude API]
   Worker -->|analysis, estado| Table
-  Receiver[receiver.html: agronomist] -->|GET /api/reports + token| API
+  Receiver[receiver.html: agronomist] -->|GET /api/reports| API
   Pipeline[Satellite pipeline] -->|reservoirs/current.geojson| Layers[(Blob: layers)]
   PWA -->|GET /api/reservoirs?bbox| API
   PWA -->|POST /api/subscribers| API
@@ -34,15 +34,15 @@ The PWA gets an acknowledgement as soon as the photo is stored and never sees Cl
 | GET | `/api/health` | none | `{"status": "ok"}` |
 | GET | `/api/reservoirs?bbox=lon_min,lat_min,lon_max,lat_max` | none | Reservoirs layer (GeoJSON) for the visible map area, each feature with `confirmado` and `verificacion` (latest verified report's `estado`). 404 until the pipeline publishes one |
 | POST | `/api/reports` | none | Stores a photo report and queues its analysis. 202 new, 200 if that `id` was already received |
-| GET | `/api/reports[?reservoirId=]` | token | Reports, newest first |
-| GET | `/api/reports/{id}` | token | One report |
-| GET | `/api/reports/{id}/photos/{n}` | token | A report photo |
+| GET | `/api/reports[?reservoirId=]` | none | Reports, newest first |
+| GET | `/api/reports/{id}` | none | One report |
+| GET | `/api/reports/{id}/photos/{n}` | none | A report photo |
 | POST | `/api/subscribers` | none | Registers a farmer for SMS alerts: `phone` (E.164), `location` of the maize field, `language` es/en/ny. 201 new, 200 updated (idempotent per phone) |
 | POST | `/api/subscribers/unsubscribe` | none | `{"phone": ...}`: stops alerts. Same answer whether or not the number was registered |
-| GET | `/api/outbox` | token | Alert SMS, newest first (most severe and nearest first within one run): what each farmer would receive |
+| GET | `/api/outbox` | none | Alert SMS, newest first (most severe and nearest first within one run): what each farmer would receive, phone masked (`+569…5678`) |
 | POST | `/api/alerts/message` | token | Drafts the SMS and voice script of an alert (`riskLevel`, `distanceKm`, `direction`, `daysToAct`, `language`: es/en/ny) |
 
-"token" is `REPORT_TOKEN`, sent as the `x-report-token` header only, never in the URL, where it would land in request logs. The receiver page fetches photos with the header and shows them as blob URLs.
+The receiver page opens with just its link (a demo choice): anyone with it sees the reports, their photos and GPS, and the alert SMS with masked phone numbers. Only drafting alerts with Claude, which spends credits, needs a token: `REPORT_TOKEN`, sent as the `x-report-token` header only, never in the URL, where it would land in request logs.
 
 `POST /api/reports` body (camelCase, like the rest of the PWA's JSON):
 
@@ -135,7 +135,8 @@ Needs Python 3.13, Node.js, Docker and [Azure Functions Core Tools 4](https://le
 ```sh
 # 1. Azurite, the Azure Storage emulator
 docker run -d --rm --name azurite -p 10000:10000 -p 10001:10001 -p 10002:10002 \
-  mcr.microsoft.com/azure-storage/azurite azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
+  mcr.microsoft.com/azure-storage/azurite azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 \
+  --skipApiVersionCheck   # the storage SDK can be ahead of the latest Azurite
 
 # 2. API
 cd backend
@@ -163,7 +164,7 @@ cd backend && .venv/bin/python -m pytest -q
 Try the analysis with a real photo (needs `ANTHROPIC_API_KEY` and the host running):
 
 ```sh
-.venv/bin/python tools/send_photo.py maize.jpg --label armyworm --token dev-token
+.venv/bin/python tools/send_photo.py maize.jpg --label armyworm
 ```
 
 ## Deploy to Azure
@@ -179,28 +180,31 @@ terraform init && terraform apply
 az keyvault secret set --vault-name "$(terraform output -raw key_vault)" --name anthropic-api-key --value "$ANTHROPIC_API_KEY"
 az functionapp restart -g "$(terraform output -raw resource_group)" -n "$(terraform output -raw function_app)"
 
-./deploy.sh                          # publishes the API and the PWA (pointed at the Function App)
-terraform output -raw report_token   # for the receiver page
+./deploy.sh                          # publishes the API, the PWA (pointed at the Function App) and the landing page at /landing/
+./deploy.sh web                      # later changes to the PWA or the landing page only: skips the API
+terraform output -raw report_token   # for /api/alerts/message only
 ```
 
-The Function App reaches Storage with a managed identity (no keys) and reads the Anthropic key through a Key Vault reference. Its CORS allows the Static Web App and the local dev server. Whoever runs Terraform also gets data access to the storage account, for the tools below. The Azure ML workspace (`infra/ml.tf`) is off: set `enable_ml = true` to create it.
+Terraform creates no role assignments: the hackathon resource group grants Contributor, which cannot. So the Function App reaches Storage with the account key (in its app settings and in the Terraform state), and reads the Anthropic key through a Key Vault reference allowed by a Key Vault access policy. Its CORS allows the Static Web App and the local dev server. The Azure ML workspace (`infra/ml.tf`) is off: `enable_ml = true` creates it, and needs permission to assign roles.
 
 ### Presenting from Azure
 
 ```sh
 # Sample reservoirs around Chimunsi and 20 synthetic farmers subscribed near them (made-up numbers, nothing is sent)
-cd backend && DATA_STORAGE_ACCOUNT="$(terraform -chdir=../infra output -raw storage_account)" .venv/bin/python tools/seed_demo.py
+cd backend && DATA_STORAGE_CONNECTION_STRING="$(terraform -chdir=../infra output -raw storage_connection_string)" .venv/bin/python tools/seed_demo.py
 ```
 
 - **Phones:** open `<pwa_url>/?demo=chimunsi` once (a QR code is handy). Demo mode is stored per address, so turning it on locally or through a tunnel does not carry over. On iPhone, an app added to the home screen may not share Safari's storage: check that the red "Demo" chip shows, or present from the browser.
 - **Photo:** "Tomar foto del parche" offers the camera or the gallery, so a downloaded photo of fall armyworm damage works. Claude analyses it for real: use a clear photo (window-pane leaves, frass in the whorl or a visible larva), not a photo of a screen.
-- **SMS:** `<pwa_url>/receiver.html#sms` with the token. A farmer registered from the PWA at the demo location ("Recibir alertas por SMS") is a few hundred metres from `chimunsi-0007` and gets a high-risk SMS when it is confirmed.
+- **Before presenting:** `tools/reset_demo.py` (same storage variables as above) deletes every alert SMS and every demo report, and puts back the sample reservoirs and synthetic farmers. Without it, a rehearsal leaves the reservoir already confirmed and the farmers already alerted (no repeat within 14 days). Field reports and farmers registered from the PWA are kept.
+- **SMS:** `<pwa_url>/receiver.html#sms`, no token needed. A farmer registered from the PWA at the demo location ("Recibir alertas por SMS") is a few hundred metres from `chimunsi-0007` and gets a high-risk SMS when it is confirmed.
 
 ## Known gaps
 
 - **Offline queue tested by hand only:** no browser test covers IndexedDB, Background Sync or the service worker.
 - **Spend control:** anyone with the PWA can post reports, and each one is analysed. Set a spend limit on the Anthropic workspace whose key you deploy.
-- **Receiver auth** is a shared token; use Entra ID for anything beyond the hackathon.
+- **The receiver is public:** anyone with the link sees reports, photos and GPS locations. Put it behind Entra ID before real field data.
+- **Storage keys:** without permission to assign roles, the Function App uses the storage account key. With Owner or User Access Administrator, go back to a managed identity and turn off shared keys.
 - **Alerts are simulated by default.** The Twilio sender exists but is off and untested against the real service; Africa's Talking is not wired in. The engine uses fixed templates; the Claude drafter (`/api/alerts/message`) is not in the SMS path. The Nyanja text needs a native speaker's review.
 - **Alert radius is a judgement**, not a measured gradient (see `docs/distancia-alerta.md`); wind direction is not used.
 - **Subscribers:** anyone can register or unsubscribe any number (no SMS confirmation code). Fine for a demo, not for real farmers.
