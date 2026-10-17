@@ -15,6 +15,7 @@ echo "Publishing the API to $app"
 dist=$(mktemp -d)
 trap 'rm -rf "$dist"' EXIT
 cp -R ../frontend/. "$dist"
+cp -R ../landing "$dist/landing" # the demo page, at /landing/
 rm -rf "$dist/dev-server.js" "$dist/scripts"
 printf "window.GUSANITO = { apiBase: '%s' };\n" "$api_url" > "$dist/config.js"
 [ -f "$dist/zambia.pmtiles" ] || echo "warning: frontend/zambia.pmtiles is missing, the offline map will be blank (run frontend/scripts/make-tiles.sh)"

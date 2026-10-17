@@ -77,10 +77,11 @@ def assemble(cells: list[tuple[int, int]]) -> pd.DataFrame:
 
 
 def score(patches: pd.DataFrame, tiles: tuple[int, int]) -> None:
-    model, version = train.load_current()
+    model, version = train.load_current()  # the model trained on the whole-country table; it only predicts here
+    version = f"v{version}"
     patches = patches.assign(prob=model.predict_proba(patches[train.FEATURES])[:, 1])
     keep = patches[patches.prob >= 0.7]
-    OUT.write_text(json.dumps({"model": f"v{version}", "total": len(patches), "tiles": tiles[0], "tilesTotal": tiles[1],
+    OUT.write_text(json.dumps({"model": version, "total": len(patches), "tiles": tiles[0], "tilesTotal": tiles[1],
                                "points": [[r.patch_id, round(r.lat, 4), round(r.lon, 4), round(float(r.prob), 2), r.area_ha] for r in keep.itertuples()]},
                               separators=(",", ":")))
     print(f"{len(patches)} patches, {len(keep)} with probability >= 0.7 -> {OUT}")

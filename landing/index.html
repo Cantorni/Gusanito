@@ -98,6 +98,9 @@
   svg text { fill: var(--muted); font: 12px system-ui; }
   .callout { border-left: 4px solid var(--sun); background: var(--surface); padding: 18px 22px; border-radius: 0 var(--radius) var(--radius) 0; margin-top: 30px; }
   .callout b { display: block; margin-bottom: 4px; }
+  .arch { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 26px 0; }
+  .arch .card { background: var(--surface); }
+  .archimg { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: var(--radius); background: #fff; }
   footer { padding: 40px 0 60px; color: var(--muted); font-size: .9rem; }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
 </style>
@@ -108,7 +111,7 @@
   <div class="wrap">
     <nav>
       <b>Gusan<span>ito</span></b>
-      <div><a href="#como">Cómo funciona</a><a href="#demo">Simulación</a><a href="#modelo">El modelo</a></div>
+      <div><a href="#como">Cómo funciona</a><a href="#demo">Simulación</a><a href="#modelo">El modelo</a><a href="#arquitectura">Arquitectura</a></div>
     </nav>
     <h1>Encontrar el gusano <em>antes</em> de que llegue al maíz.</h1>
     <p class="lead">En la estación seca el gusano cogollero sobrevive en pocos parches verdes. Un satélite los señala, un extensionista los confirma con una foto y un SMS avisa a los agricultores cercanos, aunque no tengan datos.</p>
@@ -194,6 +197,19 @@
   </div>
 </section>
 
+<section id="arquitectura">
+  <div class="wrap">
+    <div class="eyebrow">Arquitectura</div>
+    <h2>Cómo está desplegado</h2>
+    <p class="sub">Todo corre en Azure: la app se sirve como sitio estático, el back-end y el motor de alertas son Azure Functions y el modelo se reentrena en Azure ML. El diagrama enseña dos ciclos.</p>
+    <div class="arch">
+      <div class="card panel"><h3>1 · El modelo mejora</h3><p class="note" style="margin:0">Una foto llega al back-end, Claude da el veredicto, ese veredicto queda como etiqueta y el entrenamiento publica una capa nueva que el mapa del teléfono recibe.</p></div>
+      <div class="card panel"><h3>2 · Se avisa a quien corresponde</h3><p class="note" style="margin:0">Con un reporte verificado, el motor de alertas decide a qué agricultores avisar según la distancia al reservorio y arma el SMS con un enlace que funciona sin datos.</p></div>
+    </div>
+    <a href="diagrama-despliegue.png" target="_blank" rel="noopener"><img class="archimg" src="diagrama-despliegue.png" alt="Diagrama de despliegue: teléfono, Azure Static Web Apps, back-end y motor de alertas en Azure Functions, Azure ML, bases de datos y APIs externas"></a>
+  </div>
+</section>
+
 <footer><div class="wrap">Gusanito · prototipo de hackathon. Todo lo que ves en la simulación corre en local con datos sintéticos; los SMS son los que generaría el motor de alertas real, con la urgencia ajustada a la cercanía del reservorio, y ninguno sale de esta máquina. La demo se presenta en Santiago con teléfonos chilenos; el problema que resuelve es el de Zambia.</div></footer>
 
 <script src="/vendor/leaflet.js"></script>
@@ -263,7 +279,7 @@ const PointsLayer = L.Layer.extend({
 });
 
 const MID = { center: [-14.30, 31.60], zoom: 8.5 }, NEAR = { center: [-14.30, 31.60], zoom: 11 }, FAR = { center: [-13.1, 27.8], zoom: 6 };
-let map, patchMk, farmerMk, pilotBox, wideLayer;
+let map, patchMk, farmerMk, pilotBox, wideLayer, wideText = '';
 const GREEN = [[.9, '#17893f', 'alta'], [.8, '#5fbf7f', 'media'], [.7, '#b6e3c4', 'baja']];
 
 function initMap() {
@@ -286,8 +302,9 @@ function initMap() {
     if (!w) return;
     const inPilot = new Set(D.patches.map(p => p[0]));
     const pts = w.points.filter(p => !inPilot.has(p[0]));
-    wideLayer = new PointsLayer(pts).addTo(map);
-    $('wideNote').textContent = `${pts.length.toLocaleString('es')} puntos más en ${w.tiles} de ${w.tilesTotal} celdas de Zambia ya procesadas (el resto, pendiente).`;
+    wideLayer = new PointsLayer(pts);
+    wideText = `Modelo nacional (${w.model}): ${pts.length.toLocaleString('es')} puntos más, en ${w.tiles} de ${w.tilesTotal} celdas de Zambia ya procesadas (el resto, pendiente).`;
+    show(day);
   });
   map.on('zoomend', () => show(day));
   $('vNear').onclick = () => view(NEAR); $('vMid').onclick = () => view(MID); $('vFar').onclick = () => view(FAR);
@@ -307,6 +324,13 @@ function show(n) {
     m.setStyle({ opacity: 1, fillOpacity: .85, fillColor: tier[1], radius: k + (tier[0] >= .9 ? 1 : 0) });
     m.bindTooltip(`<b>${Math.round(prob * 100)} %</b> de probabilidad · confianza ${tier[2]}<br>${id} · ${ha} ha`, { direction: 'top', offset: [0, -4] });
   });
+  // The country-wide predictions are a visual effect of the last day only; the other days show just the trained zone.
+  if (wideLayer) {
+    const last = n === D.timeline.length - 1;
+    if (last && !map.hasLayer(wideLayer)) wideLayer.addTo(map);
+    if (!last && map.hasLayer(wideLayer)) map.removeLayer(wideLayer);
+    $('wideNote').textContent = last ? wideText : 'Llega al día 14 para ver el modelo en todo Zambia.';
+  }
   const COL = { high: '#d9480f', medium: '#e8b931', low: '#4a90d9' }, ORDER = ['high', 'medium', 'low'];
   const best = new Map(); // farmer -> most urgent level received so far
   D.timeline.slice(0, n + 1).forEach(x => x.sms.forEach(s => {

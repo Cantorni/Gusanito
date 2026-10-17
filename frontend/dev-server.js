@@ -30,7 +30,7 @@ http.createServer((req, res) => {
 
   // Landing page of the demo (../landing): same origin as the PWA, so it reuses vendor/ and the offline map.
   const LANDING = path.join(ROOT, '..', 'landing');
-  const lf = { '/landing': 'index.html', '/landing/': 'index.html', '/landing/index.html': 'index.html', '/landing/data.json': 'data.json', '/landing/zambia.json': 'zambia.json', '/landing/zambia-outline.geojson': 'zambia-outline.geojson' }[url.pathname];
+  const lf = { '/landing': 'index.html', '/landing/': 'index.html', '/landing/index.html': 'index.html', '/landing/data.json': 'data.json', '/landing/zambia.json': 'zambia.json', '/landing/zambia-outline.geojson': 'zambia-outline.geojson', '/landing/diagrama-despliegue.png': 'diagrama-despliegue.png' }[url.pathname];
   if (lf) {
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(lf)], 'Cache-Control': 'no-cache' });
     return fs.createReadStream(path.join(LANDING, lf)).pipe(res);

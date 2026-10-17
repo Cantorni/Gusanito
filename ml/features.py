@@ -9,6 +9,7 @@ Usage (from the repo root, env gusanito-ml): python -m ml.features [--bbox lon_m
 
 import argparse
 import json
+import os
 import time
 import urllib.request
 from pathlib import Path
@@ -26,6 +27,9 @@ DRY_YEAR = 2025
 RES_M = 100  # one pixel = 1 ha: coarse on purpose, the model only needs the greenness pattern
 GREEN_PCT = 94  # "still green" is relative: the top 6% NDVI of the late dry season (this savanna peaks at ~0.2-0.3)
 MIN_PIXELS = 2
+# shortcut: with MAX_SCENES set, each season uses only its least cloudy scenes (much faster, a bit noisier greenness);
+# the pilot zone and the first tiles were built with every scene. Upgrade: unset it for a final run.
+MAX_SCENES = int(os.environ.get("MAX_SCENES", 0))
 MIN_DROP = 0.02  # NDVI points lost from early to late dry season; less than this is evergreen
 WORLDCOVER_HOST = {30: 1, 40: 1, 20: 0.5, 90: 0.5, 10: 0}  # grassland, cropland, shrub, wetland, trees
 
@@ -58,6 +62,8 @@ def _download_sentinel(bbox):
     for name, window in {"early": f"{DRY_YEAR}-06-01/{DRY_YEAR}-07-31", "late": f"{DRY_YEAR}-09-01/{DRY_YEAR}-10-31"}.items():
         items = list(catalog.search(collections=["sentinel-2-l2a"], bbox=bbox, datetime=window,
                                     query={"eo:cloud_cover": {"lt": 30}}).items())
+        if MAX_SCENES:
+            items = sorted(items, key=lambda i: i.properties["eo:cloud_cover"])[:MAX_SCENES]
         print(f"{name} dry season: {len(items)} Sentinel-2 scenes")
         ds = load(items, **kw)
         valid = ds.SCL.isin([4, 5, 6])  # vegetation, bare soil, water: not cloud, shadow or snow

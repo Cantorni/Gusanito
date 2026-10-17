@@ -9,6 +9,10 @@ flowchart LR
     PWA["«execution environment»<br/>Navegador (Chrome / Safari)<br/><br/>«artifact» PWA Gusanito<br/>Service Worker + IndexedDB<br/>mapa offline zambia.pmtiles"]
   end
 
+  subgraph OPS["«device»  Portátil del operador"]
+    OP["«execution environment»<br/>Terraform + Python<br/><br/>«artifact» infra/ · deploy.sh<br/>seed_demo · publish_layer<br/>run_alerts"]
+  end
+
   subgraph FARM["«device»  Teléfono del agricultor"]
     SMSIN["«artifact»<br/>SMS con enlace offline"]
   end
@@ -20,7 +24,7 @@ flowchart LR
 
     subgraph FN["«node» Function App · Flex Consumption (FC1) · Linux"]
       direction TB
-      PY["«execution environment»<br/>Python 3.13 · 2 GB · escala a cero<br/><br/>«artifact» HTTP: reports, reservoirs,<br/>subscribers, alerts<br/>«artifact» cola: analyze_report<br/>+ motor de alertas"]
+      PY["«execution environment»<br/>Python 3.13 · 2 GB<br/>escala a cero<br/><br/>«artifact» API HTTP<br/>«artifact» analyze_report (cola)<br/>«artifact» motor de alertas"]
     end
 
     subgraph ST["«node» Storage Account · Standard LRS"]
@@ -34,7 +38,7 @@ flowchart LR
     ID["«node» Identidad administrada<br/>Blob Data Owner · Queue y Table Data Contributor"]
     OBS["«node» Application Insights<br/>+ Log Analytics (30 días)"]
 
-    subgraph ML["«node» Azure Machine Learning (infra/ml.tf)"]
+    subgraph ML["«node» Azure Machine Learning · opcional (enable_ml = true)"]
       direction TB
       WS["Workspace"]
       CL2["«execution environment»<br/>Cluster CPU Standard_DS3_v2<br/>0 a 2 nodos<br/><br/>«artifact» ml.pipeline<br/>entrena y publica la capa"]
@@ -49,6 +53,8 @@ flowchart LR
     OM["Open-Meteo<br/>clima"]
   end
 
+  OP -->|"az login: carga datos y capa"| ST
+  OP -.->|"terraform apply · deploy.sh"| AZ
   PWA -->|"HTTPS"| SWA
   PWA -->|"HTTPS: POST /reports, GET /reservoirs"| PY
   PY --> TBL
@@ -73,8 +79,9 @@ flowchart LR
   classDef box fill:#ffffff,stroke:#555,color:#111
   class AZ zone
   class ML train
+  style ML stroke-dasharray: 6 4
   class EXT ext
-  class PWA,SMSIN,SWA,PY,BLOB,TBL,QUE,KV,ID,OBS,WS,CL2,CLAUDE,SMS,PC,OM box
+  class OP,PWA,SMSIN,SWA,PY,BLOB,TBL,QUE,KV,ID,OBS,WS,CL2,CLAUDE,SMS,PC,OM box
 ```
 
 ## Qué sale de cada archivo de Terraform
@@ -87,7 +94,8 @@ flowchart LR
 | Identidad administrada y roles de almacenamiento | `azurerm_user_assigned_identity.functions`, `azurerm_role_assignment.storage` |
 | Key Vault con la clave de Anthropic | `azurerm_key_vault.main` |
 | Application Insights y Log Analytics | `azurerm_application_insights.main`, `azurerm_log_analytics_workspace.main` |
-| Azure ML y cluster que escala a cero | `azurerm_machine_learning_workspace.main`, `azurerm_machine_learning_compute_cluster.cpu` (`infra/ml.tf`) |
+| Azure ML y cluster que escala a cero, **solo con `enable_ml = true`** (por defecto apagado) | `azurerm_machine_learning_workspace.main`, `azurerm_machine_learning_compute_cluster.cpu`, rol *Storage Blob Data Contributor* para ambos (`infra/ml.tf`) |
+| Portátil del operador con acceso a datos (`seed_demo.py`, `publish_layer.py`, `run_alerts.py`) | `azurerm_role_assignment.storage_deployer`: *Blob* y *Table Data Contributor* para quien ejecuta Terraform |
 
 ## Lo que no sale de Terraform
 
