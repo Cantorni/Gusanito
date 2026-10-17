@@ -94,6 +94,22 @@ def test_reservoirs_layer(repo):
             blob.upload_blob(json.dumps(previous), overwrite=True)
 
 
+def test_reservoirs_layer_is_cached_until_it_changes(repo):
+    blob = repo._blobs.get_blob_client(LAYERS_CONTAINER, RESERVOIRS_BLOB)
+    previous = repo.read_reservoirs_layer()
+    try:
+        repo.write_reservoirs_layer({"type": "FeatureCollection", "features": [], "v": 1})
+        first = repo.read_reservoirs_layer()
+        assert repo.read_reservoirs_layer() is first  # unchanged blob: no second download
+        repo.write_reservoirs_layer({"type": "FeatureCollection", "features": [], "v": 2})
+        assert repo.read_reservoirs_layer()["v"] == 2
+        blob.delete_blob()
+        assert repo.read_reservoirs_layer() is None
+    finally:  # put back the layer used for local development, if there was one
+        if previous is not None:
+            repo.write_reservoirs_layer(previous)
+
+
 def test_subscriber_and_outbox(repo):
     phone = f"+2609{uuid.uuid4().int % 10**8:08d}"
     s = {"phone": phone, "location": {"lat": -14.3, "lng": 31.6}, "language": "ny", "optOut": False,

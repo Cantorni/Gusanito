@@ -71,9 +71,19 @@ def test_reset_demo_keeps_field_data(repo, monkeypatch):
     repo.save_subscriber({"phone": "+56912345678", "location": {"lat": -14.3, "lng": 31.6}, "optOut": False})
     repo.add_outbox({"id": "m1", "phone": "+56912345678", "sentAt": "2026-10-17T00:00:00+00:00"})
 
-    assert reset_demo.reset(repo, n_farmers=3) == (1, 1)
+    layer = {"type": "FeatureCollection", "features": [{"type": "Feature", "id": "zm-1", "geometry": None, "properties": {}}]}
+    assert reset_demo.reset(repo, layer, n_farmers=3) == (1, 1)
     assert repo.list_outbox() == []
     assert [r["id"] for r in repo.list_reports()] == [field["id"]]
     assert repo.read_photo(demo["photos"][0]["file"]) is None and repo.read_photo(field["photos"][0]["file"])
     assert {s["phone"] for s in repo.list_subscribers()} == {"+56912345678", "+260971000000", "+260971000001", "+260971000002"}
-    assert len(repo.read_reservoirs_layer()["features"]) == 5
+    assert repo.read_reservoirs_layer() == layer
+
+
+def test_demo_layer_is_the_zambia_layer(monkeypatch):
+    monkeypatch.setenv("SQLITE_PATH", "unused")
+    import seed_demo
+
+    layer = seed_demo.demo_layer()
+    assert layer["type"] == "FeatureCollection" and len(layer["features"]) > 1000
+    assert all({"probabilidad", "fecha", "escena"} <= f["properties"].keys() for f in layer["features"])

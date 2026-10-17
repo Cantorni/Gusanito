@@ -135,6 +135,13 @@ resource "azurerm_function_app_flex_consumption" "api" {
   maximum_instance_count = var.maximum_instance_count
   instance_memory_in_mb  = 2048
 
+  # One instance always running for the HTTP routes: a cold start (a new instance booting) took up to a
+  # minute, too long for a live demo. Billed while idle, well under a dollar a day.
+  always_ready {
+    name           = "http"
+    instance_count = var.always_ready_instances
+  }
+
   # Resolves the Key Vault reference below (access policy azurerm_key_vault_access_policy.functions).
   identity {
     type = "SystemAssigned"
