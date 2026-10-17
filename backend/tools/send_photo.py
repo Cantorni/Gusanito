@@ -1,7 +1,7 @@
 """Posts real photos to /api/reports, waits for Claude's analysis and prints it.
 
 Usage (from backend/):
-    .venv/bin/python tools/send_photo.py photo1.jpg [photo2.jpg ...] --token <REPORT_TOKEN> \
+    .venv/bin/python tools/send_photo.py photo1.jpg [photo2.jpg ...] \
         [--url http://127.0.0.1:8787/api] [--label armyworm] [--reservoir kasungu-0042] [--demo]
 """
 
@@ -15,10 +15,8 @@ import urllib.request
 import uuid
 
 
-def request(url, token=None, body=None):
+def request(url, body=None):
     headers = {"Content-Type": "application/json"}
-    if token:
-        headers["x-report-token"] = token
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, headers=headers, method="POST" if body is not None else "GET")
     with urllib.request.urlopen(req, timeout=60) as res:
@@ -29,7 +27,6 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("photos", nargs="+")
     parser.add_argument("--url", default="http://127.0.0.1:8787/api")
-    parser.add_argument("--token", required=True, help="REPORT_TOKEN, to read the analysis back")
     parser.add_argument("--label", choices=["armyworm", "not_armyworm", "unsure"])
     parser.add_argument("--reservoir")
     parser.add_argument("--demo", action="store_true", help="mark it as a demo report: kept out of the ML labels")
@@ -51,7 +48,7 @@ def main() -> None:
 
     deadline = time.time() + args.wait
     while time.time() < deadline:
-        _, report = request(f"{args.url}/reports/{report_id}", token=args.token)
+        _, report = request(f"{args.url}/reports/{report_id}")
         if report["estado"] != "pendiente":
             print(json.dumps(report, indent=2, ensure_ascii=False))
             return

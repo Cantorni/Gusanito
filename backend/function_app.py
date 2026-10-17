@@ -32,7 +32,8 @@ from gusanito.models import (
 )
 from gusanito.storage import REPORT_FIELDS, Repository, SqliteRepository, open_repository
 
-# Anyone with the PWA can post reports, so routes are anonymous; reading reports needs REPORT_TOKEN.
+# Routes are anonymous: anyone with the PWA posts reports, and the receiver page reads them with just its link
+# (a demo choice). Only drafting alerts with Claude needs REPORT_TOKEN, since every call spends credits.
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 # The Azure SDKs log every HTTP request at INFO: noise and cost in Application Insights.
@@ -170,8 +171,6 @@ def _ack(report: dict[str, Any]) -> dict[str, Any]:
 
 @app.route(route="reports", methods=["GET"])
 def list_reports(req: func.HttpRequest) -> func.HttpResponse:
-    if denied := _check_token(req):
-        return denied
     reservoir_id = req.params.get("reservoirId")
     if reservoir_id is not None and not _RESERVOIR_ID.match(reservoir_id):
         return _error(400, "invalid reservoirId")
@@ -182,11 +181,15 @@ def list_reports(req: func.HttpRequest) -> func.HttpResponse:
 def list_outbox(req: func.HttpRequest) -> func.HttpResponse:
     """Alert SMS, newest first: what each farmer would receive (the sender is simulated unless SMS_SENDER is set).
     The SMS of one alert run share sentAt: the most severe and nearest come first."""
-    if denied := _check_token(req):
-        return denied
     messages = sorted(_repository().list_outbox(), key=lambda m: (alerts.LEVELS.index(m["riskLevel"]), m["distanceKm"]))
     messages.sort(key=lambda m: m["sentAt"], reverse=True)  # stable: keeps severity order within a run
-    return _json(messages[:OUTBOX_LIMIT])
+    # The receiver page is public: never show a full phone number.
+    return _json([m | {"phone": _mask_phone(m["phone"])} for m in messages[:OUTBOX_LIMIT]])
+
+
+def _mask_phone(phone: str) -> str:
+    """+56912345678 -> +569…5678: enough for someone to recognise their own number."""
+    return f"{phone[:4]}…{phone[-4:]}"
 
 
 def _report_id(req: func.HttpRequest) -> str | None:
@@ -198,8 +201,6 @@ def _report_id(req: func.HttpRequest) -> str | None:
 
 @app.route(route="reports/{id}", methods=["GET"])
 def get_report(req: func.HttpRequest) -> func.HttpResponse:
-    if denied := _check_token(req):
-        return denied
     report_id = _report_id(req)
     if report_id is None:
         return _error(400, "id must be a UUID")
@@ -209,8 +210,6 @@ def get_report(req: func.HttpRequest) -> func.HttpResponse:
 
 @app.route(route="reports/{id}/photos/{index:int}", methods=["GET"])
 def get_photo(req: func.HttpRequest) -> func.HttpResponse:
-    if denied := _check_token(req):
-        return denied
     report_id = _report_id(req)
     if report_id is None:
         return _error(400, "id must be a UUID")
