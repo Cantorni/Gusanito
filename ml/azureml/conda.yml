@@ -1,0 +1,17 @@
+name: gusanito-ml
+channels: [conda-forge]
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - scikit-learn
+      - pandas
+      - numpy
+      - scipy
+      - joblib
+      - pystac-client
+      - planetary-computer
+      - odc-stac
+      - rasterio
+      - xarray
+      - requests

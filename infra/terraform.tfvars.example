@@ -1,2 +1,3 @@
-subscription_id = "00000000-0000-0000-0000-000000000000"
-location        = "eastus2"
+subscription_id     = "00000000-0000-0000-0000-000000000000"
+resource_group_name = "SANTIAGO-team-3" # omit to create a new group
+location            = "germanywestcentral"

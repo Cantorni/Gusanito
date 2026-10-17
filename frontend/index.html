@@ -66,23 +66,38 @@
 
     /* map marks */
 
-    /* photo pop-up: opens after the photo is taken */
-    #ask { border: 2px solid var(--coal); border-radius: 14px; background: var(--ash); color: var(--coal); padding: 0; width: min(92vw, 400px); margin: auto; overflow: hidden; }
-    #ask::backdrop { background: rgba(27, 29, 25, .72); }
-    #ask .body { padding: 16px; }
-    #ask img { display: block; width: 100%; height: 190px; object-fit: cover; border-radius: var(--radius); border: 1.5px solid var(--rule); background: var(--paper); margin-bottom: 14px; }
-    #ask h2 { font-size: 1.3rem; margin-bottom: 12px; }
-    #ask .btn { width: 100%; min-height: 60px; font-size: 1.1rem; margin-bottom: 10px; }
-    #ask .choices { display: grid; gap: 8px; margin-bottom: 8px; }
-    #ask .choice { min-height: 56px; margin: 0; justify-content: flex-start; gap: 12px; font-weight: 400; }
-    #ask .choice::before { content: ""; flex: none; width: 22px; height: 22px; border: 2px solid var(--coal); border-radius: 50%; background: var(--paper); }
-    #ask .choice[aria-checked="true"] { background: var(--coal); color: var(--paper); font-weight: 700; }
-    #ask .choice[aria-checked="true"]::before { border-color: var(--paper); background: var(--reservoir); box-shadow: inset 0 0 0 4px var(--coal); }
-    #ask .link { min-height: 48px; border-color: transparent; font-weight: 400; text-decoration: underline; }
-    #ask-msg { min-height: 1.4em; margin-bottom: 8px; font-size: 1rem; }
-    #ask-msg.err { color: var(--ember); font-weight: 700; }
-    #ask .done h2 { color: var(--reservoir-ink); }
-    #ask .done p { color: var(--muted); margin-bottom: 16px; }
+    /* pop-ups: photo report (opens after the photo is taken) and SMS alerts sign-up */
+    dialog { border: 2px solid var(--coal); border-radius: 14px; background: var(--ash); color: var(--coal); padding: 0; width: min(92vw, 400px); margin: auto; overflow: hidden; }
+    dialog::backdrop { background: rgba(27, 29, 25, .72); }
+    dialog .body { padding: 16px; }
+    dialog img { display: block; width: 100%; height: 190px; object-fit: cover; border-radius: var(--radius); border: 1.5px solid var(--rule); background: var(--paper); margin-bottom: 14px; }
+    dialog h2 { font-size: 1.3rem; margin-bottom: 12px; }
+    dialog .btn { width: 100%; min-height: 60px; font-size: 1.1rem; margin-bottom: 10px; }
+    dialog .choices { display: grid; gap: 8px; margin-bottom: 8px; }
+    dialog .choice { min-height: 56px; margin: 0; justify-content: flex-start; gap: 12px; font-weight: 400; }
+    dialog .choice::before { content: ""; flex: none; width: 22px; height: 22px; border: 2px solid var(--coal); border-radius: 50%; background: var(--paper); }
+    dialog .choice[aria-checked="true"] { background: var(--coal); color: var(--paper); font-weight: 700; }
+    dialog .choice[aria-checked="true"]::before { border-color: var(--paper); background: var(--reservoir); box-shadow: inset 0 0 0 4px var(--coal); }
+    dialog .link { min-height: 48px; border-color: transparent; font-weight: 400; text-decoration: underline; }
+    dialog .msg { min-height: 1.4em; margin-bottom: 8px; font-size: 1rem; }
+    dialog .msg.err { color: var(--ember); font-weight: 700; }
+    dialog .done h2 { color: var(--reservoir-ink); }
+    dialog .done p { color: var(--muted); margin-bottom: 16px; }
+
+    dialog label, dialog legend { display: block; font-weight: 700; margin-bottom: 6px; }
+    dialog fieldset { border: 0; margin-bottom: 8px; }
+    dialog input[type="tel"] { width: 100%; min-height: var(--tap); padding: 0 12px; font-size: 1.15rem; border: 2px solid var(--coal); border-radius: var(--radius); background: var(--paper); }
+    dialog input[aria-invalid="true"] { border-color: var(--ember); }
+    dialog .hint { color: var(--muted); font-size: .9rem; margin: 6px 0 14px; }
+    dialog .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    dialog .row .btn { min-height: 52px; font-size: 1rem; margin: 0; }
+    #sub-loc { font-weight: 700; color: var(--reservoir-ink); }
+
+    /* offline write queue and GPS guidance to the selected reservoir */
+    #queue-bar { font-size: .9rem; font-weight: 700; color: var(--coal); background: var(--straw); border-radius: 99px; padding: 4px 12px; margin-bottom: 10px; display: inline-block; }
+    #guide { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 1.05rem; }
+    #guide-arrow { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--coal); color: var(--paper); display: grid; place-items: center; font-size: 1.6rem; font-weight: 700; line-height: 1; }
+    #guide strong { color: var(--reservoir-ink); font-variant-numeric: tabular-nums; }
 
     @media (prefers-reduced-motion: reduce) { #cache-fill { transition: none; } }
     @media (max-width: 380px) { .fields { grid-template-columns: 1fr 1fr; } }
@@ -98,14 +113,21 @@
 </div>
 
 <section id="sheet" aria-label="Controles">
+  <p id="queue-bar" role="status" hidden></p>
   <p id="info-bar" aria-live="polite">Buscando tu ubicación…</p>
   <div id="target" role="status" hidden>
     <span id="target-text"></span>
     <button id="target-clear" class="btn" type="button">Quitar</button>
   </div>
+  <div id="guide" role="status" aria-live="polite" hidden>
+    <span id="guide-arrow" aria-hidden="true">↑</span>
+    <span id="guide-text"></span>
+  </div>
   <div class="actions">
     <button id="btn-photo" class="btn primary" type="button">Tomar foto del parche</button>
     <button id="btn-locate" class="btn" type="button" hidden>Activar ubicación</button>
+    <button id="btn-me" class="btn" type="button" hidden>Ir a mi ubicación</button>
+    <button id="btn-sub" class="btn" type="button">Recibir alertas por SMS</button>
   </div>
   <div id="cache-bar">
     <span id="cache-label">Descargando mapa sin conexión…</span>
@@ -124,18 +146,46 @@
       <button class="btn choice" type="button" role="radio" aria-checked="false" data-label="not_armyworm">No hay plaga</button>
       <button class="btn choice" type="button" role="radio" aria-checked="false" data-label="unsure">No estoy seguro</button>
     </div>
-    <div id="ask-msg" role="alert"></div>
+    <div id="ask-msg" class="msg" role="alert"></div>
     <button id="ask-send" class="btn primary" type="button" disabled>Enviar foto</button>
     <button id="ask-cancel" class="btn link" type="button">Cancelar</button>
   </div>
   <div class="body done" id="ask-done" hidden>
-    <h2>Foto enviada</h2>
+    <h2 id="ask-done-title">Foto enviada</h2>
     <p id="ask-done-text">Un agrónomo la revisará.</p>
     <button id="ask-another" class="btn" type="button">Tomar otra foto</button>
     <button id="ask-close" class="btn" type="button">Listo</button>
   </div>
 </dialog>
 
+<dialog id="sub" aria-labelledby="sub-title">
+  <form class="body" id="sub-form" novalidate>
+    <h2 id="sub-title">Alertas por SMS</h2>
+    <p class="hint">Te avisamos por SMS si se confirma un reservorio de gusano cogollero cerca de tu campo de maíz.</p>
+    <label for="sub-phone">Número de teléfono</label>
+    <input id="sub-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+260 97 1234567" aria-describedby="sub-phone-hint" />
+    <p id="sub-phone-hint" class="hint">Con el código del país: +260 en Zambia.</p>
+    <fieldset>
+      <legend id="sub-lang-title">Idioma del SMS</legend>
+      <div class="choices" role="radiogroup" aria-labelledby="sub-lang-title">
+        <button class="btn choice" type="button" role="radio" aria-checked="false" data-lang="ny">Chinyanja</button>
+        <button class="btn choice" type="button" role="radio" aria-checked="false" data-lang="en">English</button>
+        <button class="btn choice" type="button" role="radio" aria-checked="true" data-lang="es">Español</button>
+      </div>
+    </fieldset>
+    <p class="hint">Campo de maíz: <span id="sub-loc">sin elegir</span></p>
+    <div class="row">
+      <button id="sub-gps" class="btn" type="button">Usar mi GPS</button>
+      <button id="sub-pick" class="btn" type="button">Tocar en el mapa</button>
+    </div>
+    <div id="sub-msg" class="msg" role="alert"></div>
+    <button id="sub-send" class="btn primary" type="submit">Registrarme</button>
+    <button id="sub-off" class="btn link" type="button">Dejar de recibir alertas</button>
+    <button id="sub-cancel" class="btn link" type="button">Cancelar</button>
+  </form>
+</dialog>
+
+<script src="queue.js"></script>
 <script>
 // ---- ONLINE CHIP ----
 const net = document.getElementById('net');
@@ -148,10 +198,13 @@ window.addEventListener('offline', updateOnline);
 updateOnline();
 
 // ---- STATE ----
-let userPos = null, userMarker = null, accuracyCircle = null, centered = false, watchId = null;
+let userPos = null, userMarker = null, accuracyCircle = null, watchId = null;
 
 // ---- MAP: Leaflet + offline vector tiles (zambia.pmtiles, cached by the service worker) ----
-const map = L.map('map', { zoomControl: false }).setView([-13.5, 28.0], 5);
+// Fixed start: rural maize farmland near Chimunsi, Eastern Province (the demo area, see README). GPS does
+// not move the map: "Ir a mi ubicación" does. A deploy can set window.GUSANITO.start in config.js.
+const START = (window.GUSANITO && window.GUSANITO.start) || { lat: -14.30, lng: 31.60, zoom: 13 };
+const map = L.map('map', { zoomControl: false }).setView([START.lat, START.lng], START.zoom);
 L.control.zoom({ position: 'topright', zoomInTitle: 'Acercar', zoomOutTitle: 'Alejar' }).addTo(map);
 map.attributionControl.setPosition('topleft');
 // maxDataZoom 12: tiles are overzoomed beyond that (shortcut: extract is z0-12, regenerate for more detail)
@@ -164,7 +217,10 @@ const API = window.GUSANITO.apiBase;
 const RESERVOIR_MIN_ZOOM = 9;
 const RESERVOIR_STYLE = { color: '#0e5a29', weight: 2, fillColor: '#17893f', fillOpacity: 0.3 };
 const SELECTED_STYLE = { color: '#1b1d19', weight: 4, fillColor: '#17893f', fillOpacity: 0.55 };
-let selected = null; // { id, layer }
+// Confirmed on the ground (a report found larvae): ember, the colour kept for problems.
+const CONFIRMED_STYLE = { color: '#c93a14', weight: 3, fillColor: '#c93a14', fillOpacity: 0.35 };
+const styleFor = f => (f && f.properties && f.properties.confirmado ? CONFIRMED_STYLE : RESERVOIR_STYLE);
+let selected = null; // { id, layer, feature }
 let reservoirRequest = null, reservoirTimer = null;
 
 map.createPane('reservoirs').style.zIndex = 350; // under the overlay pane, so the user's dot stays on top
@@ -172,33 +228,37 @@ map.createPane('reservoirs').style.zIndex = 350; // under the overlay pane, so t
 const reservoirLayer = L.geoJSON(null, {
   pane: 'reservoirs',
   bubblingMouseEvents: false, // a tap on a patch must not reach the map (which clears the selection)
-  style: () => RESERVOIR_STYLE,
-  pointToLayer: (f, latlng) => L.circleMarker(latlng, { ...RESERVOIR_STYLE, radius: 12, pane: 'reservoirs', bubblingMouseEvents: false }),
+  style: styleFor,
+  pointToLayer: (f, latlng) => L.circleMarker(latlng, { ...styleFor(f), radius: 12, pane: 'reservoirs', bubblingMouseEvents: false }),
   onEachFeature: (f, layer) => layer.on('click', () => selectReservoir(f, layer)),
 }).addTo(map);
 
 function selectReservoir(feature, layer) {
-  if (selected) selected.layer.setStyle(RESERVOIR_STYLE);
-  selected = { id: String(feature.id), layer };
+  if (selected) selected.layer.setStyle(styleFor(selected.feature));
+  selected = { id: String(feature.id), layer, feature };
   layer.setStyle(SELECTED_STYLE);
   const p = feature.properties || {};
   const prob = Number.isFinite(p.probabilidad) ? ` · probabilidad ${Math.round(p.probabilidad * 100)}%` : '';
-  document.getElementById('target-text').innerHTML = `Parche <strong>${escapeHtml(selected.id)}</strong>${prob}`;
+  const state = p.confirmado ? ' · <strong>confirmado</strong>' : '';
+  document.getElementById('target-text').innerHTML = `Parche <strong>${escapeHtml(selected.id)}</strong>${prob}${state}`;
   document.getElementById('target').hidden = false;
   document.getElementById('btn-photo').textContent = 'Tomar foto de este parche';
+  updateGuide();
 }
 
 function clearReservoir() {
-  if (selected) selected.layer.setStyle(RESERVOIR_STYLE);
+  if (selected) selected.layer.setStyle(styleFor(selected.feature));
   selected = null;
   document.getElementById('target').hidden = true;
   document.getElementById('btn-photo').textContent = 'Tomar foto del parche';
+  updateGuide();
 }
 document.getElementById('target-clear').addEventListener('click', clearReservoir);
-map.on('click', clearReservoir);
+map.on('click', e => (pickingField ? setField(e.latlng.lat, e.latlng.lng, true) : clearReservoir()));
 
 async function loadReservoirs() {
-  if (!navigator.onLine || map.getZoom() < RESERVOIR_MIN_ZOOM) return; // offline: keep what is drawn
+  // Offline too: the service worker answers from its copy of the layer (stale-while-revalidate).
+  if (map.getZoom() < RESERVOIR_MIN_ZOOM) return;
   const b = map.getBounds();
   const clamp = (v, lim) => Math.max(-lim, Math.min(lim, v));
   const bbox = [clamp(b.getWest(), 180), clamp(b.getSouth(), 90), clamp(b.getEast(), 180), clamp(b.getNorth(), 90)].map(v => v.toFixed(5)).join(',');
@@ -212,11 +272,61 @@ async function loadReservoirs() {
     reservoirLayer.clearLayers();
     reservoirLayer.addData(layer);
     if (keep) reservoirLayer.eachLayer(l => { if (String(l.feature.id) === selected.id) selectReservoir(l.feature, l); });
-    else if (selected) clearReservoir();
+    else if (selected && !selected.id.startsWith('sms-')) clearReservoir();
   } catch (_) { /* aborted or network error: keep the current layer */ }
 }
 map.on('moveend', () => { clearTimeout(reservoirTimer); reservoirTimer = setTimeout(loadReservoirs, 400); });
-window.addEventListener('online', loadReservoirs);
+loadReservoirs();
+
+// ---- SMS POINTS: probable points arrive in a link (?p=, see backend/gusanito/smslink.py) ----
+// The installed PWA opens from the cache with no data; the points are kept in localStorage.
+const SMS_KEY = 'gusanito-sms-points';
+const SMS_MAX = 200;
+const smsLayer = L.layerGroup().addTo(map);
+const smsStore = {
+  read() { try { return JSON.parse(localStorage.getItem(SMS_KEY)) || []; } catch (_) { return []; } },
+  write(v) { try { localStorage.setItem(SMS_KEY, JSON.stringify(v.slice(-SMS_MAX))); } catch (_) { /* storage blocked: points last this session only */ } },
+};
+
+function decodeSmsPoints(p) {
+  const n = p.split('_').map(Number);
+  if (!n.length || n.length % 3 || n.some(v => !Number.isInteger(v))) return [];
+  const pts = [];
+  let lat = 0, lon = 0;
+  for (let i = 0; i < n.length; i += 3) {
+    lat += n[i]; lon += n[i + 1];
+    const pt = { lat: lat / 1e4, lng: lon / 1e4, prob: n[i + 2] / 100 };
+    if (Math.abs(pt.lat) > 90 || Math.abs(pt.lng) > 180 || pt.prob < 0 || pt.prob > 1) return []; // garbled link: show nothing
+    pts.push(pt);
+  }
+  return pts;
+}
+
+function drawSmsPoints(pts) {
+  smsLayer.clearLayers();
+  pts.forEach(pt => {
+    const id = `sms-${Math.round(pt.lat * 1e4)}_${Math.round(pt.lng * 1e4)}`;
+    // 99 % is how the alert engine marks a reservoir confirmed on the ground (backend/gusanito/alerts.py).
+    const feature = { id, properties: { probabilidad: pt.prob, confirmado: pt.prob >= 0.99 } };
+    const m = L.circleMarker([pt.lat, pt.lng], { ...styleFor(feature), radius: 12, pane: 'reservoirs', bubblingMouseEvents: false }).addTo(smsLayer);
+    m.on('click', () => selectReservoir(feature, m));
+  });
+}
+
+(function loadSmsPoints() {
+  const incoming = decodeSmsPoints(new URLSearchParams(location.search).get('p') || '');
+  const key = pt => `${pt.lat},${pt.lng}`;
+  const seen = new Set(incoming.map(key));
+  const all = smsStore.read().filter(pt => !seen.has(key(pt))).concat(incoming);
+  if (incoming.length) {
+    smsStore.write(all);
+    history.replaceState(null, '', location.pathname); // a refresh must not re-add them
+  }
+  drawSmsPoints(all);
+  if (incoming.length) {
+    map.fitBounds(L.latLngBounds(incoming.map(pt => [pt.lat, pt.lng])), { maxZoom: 15, padding: [40, 40] });
+  }
+})();
 
 // ---- LOCATION: automatic, the user never types coordinates ----
 const locateBtn = document.getElementById('btn-locate');
@@ -231,9 +341,39 @@ function onFix(pos) {
     userMarker.setLatLng([lat, lng]);
     accuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
   }
-  if (!centered) { map.setView([lat, lng], 15); centered = true; }
-  setInfo(`Tu ubicación: <span class="hi">${lat.toFixed(5)}, ${lng.toFixed(5)}</span> (±${Math.round(accuracy)} m)`);
+  if (!pickingField) setInfo(`Tu ubicación: <span class="hi">${lat.toFixed(5)}, ${lng.toFixed(5)}</span> (±${Math.round(accuracy)} m)`);
   locateBtn.hidden = true;
+  document.getElementById('btn-me').hidden = false;
+  updateGuide();
+}
+document.getElementById('btn-me').addEventListener('click', () => userPos && map.setView([userPos.lat, userPos.lng], 15));
+
+// ---- GPS GUIDANCE: distance and compass direction to the selected reservoir ----
+// Works with no data: phone GPS needs no network, and the maths is local. Updates on every fix.
+const COMPASS_ES = ['norte', 'noreste', 'este', 'sureste', 'sur', 'suroeste', 'oeste', 'noroeste'];
+function distanceKm(a, b) {
+  const rad = Math.PI / 180, dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+function bearingDeg(a, b) {
+  const rad = Math.PI / 180, dLng = (b.lng - a.lng) * rad;
+  const y = Math.sin(dLng) * Math.cos(b.lat * rad);
+  const x = Math.cos(a.lat * rad) * Math.sin(b.lat * rad) - Math.sin(a.lat * rad) * Math.cos(b.lat * rad) * Math.cos(dLng);
+  return (Math.atan2(y, x) / rad + 360) % 360;
+}
+function updateGuide() {
+  const guide = document.getElementById('guide');
+  if (!selected || !userPos) { guide.hidden = true; return; }
+  const l = selected.layer;
+  const target = l.getLatLng ? l.getLatLng() : l.getBounds().getCenter();
+  const km = distanceKm(userPos, target), deg = bearingDeg(userPos, target);
+  const dist = km < 1 ? `${Math.round(km * 1000 / 10) * 10} m` : `${km.toLocaleString('es', { maximumFractionDigits: 1 })} km`;
+  document.getElementById('guide-arrow').style.transform = `rotate(${Math.round(deg)}deg)`;
+  document.getElementById('guide-text').innerHTML = km < 0.03
+    ? '<strong>Estás en el parche</strong>'
+    : `A <strong>${dist}</strong>, camina hacia el <strong>${COMPASS_ES[Math.round(deg / 45) % 8]}</strong> (${Math.round(deg)}°, con el norte arriba)`;
+  guide.hidden = false;
 }
 
 function onGeoError(err) {
@@ -274,7 +414,7 @@ function setSending(sending) {
   sendBtn.textContent = sending ? 'Enviando foto…' : 'Enviar foto';
 }
 
-function fail(msg) { askMsg.className = 'err'; askMsg.textContent = msg; }
+function fail(msg) { askMsg.classList.add('err'); askMsg.textContent = msg; }
 function showAsk(question) {
   document.getElementById('ask-question').hidden = !question;
   document.getElementById('ask-done').hidden = question;
@@ -295,7 +435,7 @@ fileIn.addEventListener('change', () => {
   if (!f) return;
   reportId = crypto.randomUUID();
   document.getElementById('photo-preview').src = URL.createObjectURL(f);
-  askMsg.className = ''; askMsg.textContent = '';
+  askMsg.classList.remove('err'); askMsg.textContent = '';
   choose(null);
   setSending(false);
   showAsk(true);
@@ -323,36 +463,162 @@ function getGps() {
   });
 }
 
+// The report goes to the offline queue first: no signal never loses a photo. The id stays the same on
+// every retry, so the server stores it once.
 sendBtn.addEventListener('click', async () => {
   const f = fileIn.files[0];
   if (!f || !label) return;
-  if (!navigator.onLine) return fail('No hay conexión. Intenta de nuevo cuando tengas señal.');
-
   setSending(true);
-  askMsg.className = ''; askMsg.textContent = '';
+  askMsg.classList.remove('err'); askMsg.textContent = '';
+  let location;
   try {
-    const [img, location] = await Promise.all([toJpeg(f), userPos ? { ...userPos } : getGps()]);
-    const body = {
-      id: reportId,
-      reservoirId: selected ? selected.id : null,
-      label,
-      location,
-      capturedAt: new Date(f.lastModified).toISOString(),
-      photos: [{ mediaType: 'image/jpeg', data: img.data }],
-      meta: { name: f.name.slice(0, 120), originalSize: f.size, width: img.width, height: img.height },
-    };
-    const r = await fetch(`${API}/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || r.status);
-    document.getElementById('ask-done-text').textContent = location
-      ? 'Un agrónomo la revisará.'
-      : 'Un agrónomo la revisará. Se envió sin ubicación GPS.';
-    showAsk(false);
+    let img;
+    [img, location] = await Promise.all([toJpeg(f), userPos ? { ...userPos } : getGps()]);
+    await outbox.add({
+      key: `report:${reportId}`,
+      path: '/reports',
+      body: {
+        id: reportId,
+        reservoirId: selected ? selected.id : null,
+        label,
+        location,
+        capturedAt: new Date(f.lastModified).toISOString(),
+        photos: [{ mediaType: 'image/jpeg', data: img.data }],
+        meta: { name: f.name.slice(0, 120), originalSize: f.size, width: img.width, height: img.height },
+      },
+    });
   } catch (e) {
     setSending(false);
-    fail('No se pudo enviar. Toca "Enviar foto" para intentar de nuevo.');
+    return fail('No se pudo guardar la foto en el teléfono. Toca "Enviar foto" para intentar de nuevo.');
   }
+  const queued = (await outbox.flush()).pendingKeys.includes(`report:${reportId}`);
+  document.getElementById('ask-done-title').textContent = queued ? 'Foto guardada' : 'Foto enviada';
+  document.getElementById('ask-done-text').textContent = (queued
+    ? 'Se enviará sola cuando haya señal. Un agrónomo la revisará.'
+    : 'Un agrónomo la revisará.') + (location ? '' : ' Va sin ubicación GPS.');
+  showAsk(false);
 });
+
+// ---- OFFLINE QUEUE (queue.js): reports and subscriptions wait in IndexedDB until there is signal ----
+// Flushed at start, when the phone gets signal, every 30 s while something waits, and by the service
+// worker's Background Sync where the browser has it (Chrome/Android), even with the app closed.
+const queueBar = document.getElementById('queue-bar');
+const outbox = {
+  async add(item) {
+    await GusanitoQueue.add(item);
+    showQueue();
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(r => r.sync && r.sync.register('gusanito-outbox')).catch(() => {});
+    }
+  },
+  async flush() {
+    let result = { sent: 0 };
+    if (navigator.onLine) { try { result = await GusanitoQueue.flush(API); } catch (_) { /* IndexedDB blocked */ } }
+    const pending = await GusanitoQueue.all().catch(() => []);
+    showQueue(pending.length);
+    if (result.sent) afterSent();
+    return { ...result, pendingKeys: pending.map(i => i.key) };
+  },
+};
+async function showQueue(n) {
+  if (n === undefined) n = (await GusanitoQueue.all().catch(() => [])).length;
+  queueBar.hidden = !n;
+  queueBar.textContent = n === 1 ? '1 pendiente de envío' : `${n} pendientes de envío`;
+}
+// Sent: new reports may have confirmed a reservoir, so redraw the layer.
+function afterSent() { loadReservoirs(); }
+window.addEventListener('online', () => { outbox.flush(); loadReservoirs(); });
+setInterval(() => { if (navigator.onLine && !queueBar.hidden) outbox.flush(); }, 30000);
+outbox.flush();
+
+// ---- SMS ALERTS SIGN-UP: phone + where the maize field is (GPS or a tap on the map) + language ----
+const PHONE_RE = /^\+[1-9][0-9]{7,14}$/; // E.164, the same check as the server
+const SUB_KEY = 'gusanito-subscription';
+const subDlg = document.getElementById('sub');
+const subPhone = document.getElementById('sub-phone');
+const subMsg = document.getElementById('sub-msg');
+const langBtns = document.querySelectorAll('#sub [data-lang]');
+let subLang = 'es', subField = null, fieldMarker = null, pickingField = false;
+const subStore = {
+  read() { try { return JSON.parse(localStorage.getItem(SUB_KEY)); } catch (_) { return null; } },
+  write(v) { try { v ? localStorage.setItem(SUB_KEY, JSON.stringify(v)) : localStorage.removeItem(SUB_KEY); } catch (_) { /* storage blocked */ } },
+};
+
+function chooseLang(lang) {
+  subLang = lang;
+  langBtns.forEach(b => b.setAttribute('aria-checked', String(b.dataset.lang === lang)));
+}
+langBtns.forEach(b => b.addEventListener('click', () => chooseLang(b.dataset.lang)));
+
+function subFail(msg, field) {
+  subMsg.classList.add('err'); subMsg.textContent = msg;
+  if (field) { field.setAttribute('aria-invalid', 'true'); field.focus(); }
+}
+function setField(lat, lng, fromMap) {
+  subField = { lat: +lat.toFixed(6), lng: +lng.toFixed(6) };
+  document.getElementById('sub-loc').textContent = `${subField.lat.toFixed(5)}, ${subField.lng.toFixed(5)}`;
+  if (!fieldMarker) fieldMarker = L.circleMarker([lat, lng], { radius: 10, color: '#1b1d19', weight: 3, fillColor: '#a89a6a', fillOpacity: 1, interactive: false }).addTo(overlay);
+  else fieldMarker.setLatLng([lat, lng]);
+  if (fromMap) { pickingField = false; setInfo('Campo marcado en el mapa.'); subDlg.showModal(); }
+}
+function updateSubButton() {
+  const saved = subStore.read();
+  document.getElementById('btn-sub').textContent = saved ? `Alertas SMS activas: ${saved.phone}` : 'Recibir alertas por SMS';
+}
+
+document.getElementById('btn-sub').addEventListener('click', () => {
+  const saved = subStore.read();
+  subMsg.classList.remove('err'); subMsg.textContent = '';
+  subPhone.removeAttribute('aria-invalid');
+  if (saved) { subPhone.value = saved.phone; chooseLang(saved.language); setField(saved.location.lat, saved.location.lng, false); }
+  document.getElementById('sub-off').hidden = !saved;
+  subDlg.showModal();
+});
+document.getElementById('sub-cancel').addEventListener('click', () => subDlg.close());
+document.getElementById('sub-gps').addEventListener('click', async () => {
+  subMsg.classList.remove('err'); subMsg.textContent = 'Buscando tu ubicación…';
+  const pos = userPos || await getGps();
+  if (!pos) return subFail('No se pudo leer el GPS. Toca el campo en el mapa.');
+  subMsg.textContent = '';
+  setField(pos.lat, pos.lng, false);
+});
+document.getElementById('sub-pick').addEventListener('click', () => {
+  subDlg.close();
+  pickingField = true;
+  setInfo('<strong>Toca tu campo de maíz en el mapa.</strong>');
+});
+
+document.getElementById('sub-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  subPhone.removeAttribute('aria-invalid');
+  const phone = subPhone.value.replace(/[\s().-]/g, '');
+  if (!PHONE_RE.test(phone)) return subFail('Escribe el número con el código del país, por ejemplo +260971234567.', subPhone);
+  if (!subField) return subFail('Elige dónde está tu campo: usa tu GPS o tócalo en el mapa.');
+  const sub = { phone, location: subField, language: subLang };
+  try {
+    await outbox.add({ key: `subscriber:${phone}`, path: '/subscribers', body: sub });
+  } catch (_) {
+    return subFail('No se pudo guardar en el teléfono. Intenta de nuevo.');
+  }
+  subStore.write(sub);
+  updateSubButton();
+  subDlg.close();
+  const queued = (await outbox.flush()).pendingKeys.includes(`subscriber:${phone}`);
+  setInfo(queued ? 'Registro guardado: se enviará cuando haya señal.' : `Listo: recibirás alertas en ${escapeHtml(phone)}.`);
+});
+
+document.getElementById('sub-off').addEventListener('click', async () => {
+  const saved = subStore.read();
+  if (!saved) return;
+  // Same key as the sign-up: if that is still waiting, the opt-out replaces it.
+  await outbox.add({ key: `subscriber:${saved.phone}`, path: '/subscribers/unsubscribe', body: { phone: saved.phone } }).catch(() => {});
+  subStore.write(null);
+  updateSubButton();
+  subDlg.close();
+  outbox.flush();
+  setInfo('Ya no recibirás alertas por SMS.');
+});
+updateSubButton();
 
 // ---- HELPERS ----
 function setInfo(html) { document.getElementById('info-bar').innerHTML = html; }
@@ -376,6 +642,8 @@ if ('serviceWorker' in navigator) {
       if (e.data.type === 'CACHE_READY') ready();
       if (e.data.type === 'CACHE_UNAVAILABLE') bar.style.display = 'none';
       if (e.data.type === 'CACHE_RETRY') label.textContent = 'El mapa sin conexión se descargará cuando haya señal';
+      if (e.data.type === 'RESERVOIRS_UPDATED') loadReservoirs();
+      if (e.data.type === 'QUEUE_FLUSHED') { showQueue(e.data.pending); if (e.data.sent) afterSent(); }
     });
 
     // Ask the SW to download the offline map once it is active (no-op if already cached)

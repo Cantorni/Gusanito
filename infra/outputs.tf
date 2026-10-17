@@ -1,5 +1,5 @@
 output "resource_group" {
-  value = azurerm_resource_group.main.name
+  value = local.resource_group_name
 }
 
 output "function_app" {
@@ -30,4 +30,12 @@ output "report_token" {
 output "static_web_app_deployment_token" {
   value     = azurerm_static_web_app.pwa.api_key
   sensitive = true
+}
+
+output "ml_workspace" {
+  value = azurerm_machine_learning_workspace.main.name
+}
+
+output "ml_compute" {
+  value = azurerm_machine_learning_compute_cluster.cpu.name
 }

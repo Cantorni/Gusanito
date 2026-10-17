@@ -1,0 +1,12 @@
+# Azure ML command job: the same pipeline that runs on the laptop (python -m ml.pipeline --curve).
+# Submit from the repo root once Terraform created the workspace and cluster:
+#   az ml job create -f ml/azureml/job.yml -g <resource group> -w <workspace>
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+display_name: gusanito-reservoir-model
+experiment_name: gusanito
+code: ../..
+command: python -m ml.pipeline --curve
+environment:
+  image: mcr.microsoft.com/azureml/openmpi4.1.2-ubuntu20.04:latest
+  conda_file: conda.yml
+compute: azureml:cpu-cluster

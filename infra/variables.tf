@@ -3,6 +3,12 @@ variable "subscription_id" {
   type        = string
 }
 
+variable "resource_group_name" {
+  description = "Existing resource group to deploy into. Null creates a new one."
+  type        = string
+  default     = null
+}
+
 variable "prefix" {
   description = "Prefix for resource names (lowercase letters and digits)."
   type        = string
@@ -17,13 +23,13 @@ variable "prefix" {
 variable "location" {
   description = "Azure region for the API and data. Must support Flex Consumption (az functionapp list-flexconsumption-locations)."
   type        = string
-  default     = "eastus2"
+  default     = "germanywestcentral"
 }
 
 variable "static_web_app_location" {
   description = "Region for the PWA hosting. Static Web Apps only runs in a few regions (e.g. eastus2, westus2, westeurope)."
   type        = string
-  default     = "eastus2"
+  default     = "westeurope"
 }
 
 variable "extra_cors_origins" {
@@ -42,4 +48,16 @@ variable "maximum_instance_count" {
   description = "Maximum instances the Function App scales out to."
   type        = number
   default     = 40
+}
+
+variable "ml_compute_vm_size" {
+  description = "VM size of the Azure ML training cluster (CPU is enough for the tabular model)."
+  type        = string
+  default     = "Standard_DS3_v2"
+}
+
+variable "ml_compute_max_nodes" {
+  description = "Maximum nodes of the training cluster. It scales to zero when idle."
+  type        = number
+  default     = 2
 }

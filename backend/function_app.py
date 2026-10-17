@@ -18,17 +18,19 @@ import anthropic
 import azure.functions as func
 from pydantic import ValidationError
 
-from gusanito import config
+from gusanito import alerts, config
 from gusanito.analysis import Analyzer, ModelResponseError, Photo
-from gusanito.geo import filter_by_bbox, parse_bbox
+from gusanito.geo import filter_by_bbox, geometry_bbox, parse_bbox
 from gusanito.models import (
     RESERVOIR_ID_PATTERN,
     AlertIn,
     ReportIn,
+    SubscriberIn,
+    UnsubscribeIn,
     agrees_with_officer,
     decide_estado,
 )
-from gusanito.storage import REPORT_FIELDS, Repository
+from gusanito.storage import REPORT_FIELDS, Repository, SqliteRepository, open_repository
 
 # Anyone with the PWA can post reports, so routes are anonymous; reading reports needs REPORT_TOKEN.
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
@@ -47,8 +49,8 @@ def _config() -> config.Config:
 
 
 @functools.cache
-def _repository() -> Repository:
-    return Repository.from_config(_config())
+def _repository() -> Repository | SqliteRepository:
+    return open_repository(_config())
 
 
 @functools.cache
@@ -98,9 +100,12 @@ def health(req: func.HttpRequest) -> func.HttpResponse:
 
 @app.route(route="reservoirs", methods=["GET"])
 def reservoirs(req: func.HttpRequest) -> func.HttpResponse:
-    layer = _repository().read_reservoirs_layer()
+    repo = _repository()
+    layer = repo.read_reservoirs_layer()
     if layer is None:
         return _error(404, "no reservoirs layer published yet")
+    # shortcut: reads every report per request; keep a per-reservoir state table once reports grow
+    layer = alerts.annotate_layer(layer, repo.list_reports(limit=100_000))
     bbox_text = req.params.get("bbox")
     if not bbox_text:
         return _json(layer)
@@ -138,11 +143,23 @@ def create_report(req: func.HttpRequest, queue: func.Out[str]) -> func.HttpRespo
         "photos": [{"file": name, "mediaType": p.media_type} for name, p in zip(photos, report_in.photos)],
         "receivedAt": _now(),
         "estado": "pendiente",
+        "scene": _scene(repo, report_in.reservoir_id),
     }
     stored, created = repo.create_report(report)
     if created:
         queue.set(json.dumps({"id": report_id}))
     return _json(_ack(stored), 202 if created else 200)
+
+
+def _scene(repo, reservoir_id: str | None) -> dict[str, Any] | None:
+    """The satellite scene the reservoir was mapped from, so each field record points at the image it checked."""
+    layer = repo.read_reservoirs_layer() if reservoir_id else None
+    for f in (layer or {}).get("features", []):
+        if str(f.get("id")) == reservoir_id:
+            props = f.get("properties") or {}
+            box = f.get("geometry") and geometry_bbox(f["geometry"])
+            return {"id": props.get("escena"), "date": props.get("fecha"), "bbox": list(box) if box else None}
+    return None
 
 
 def _ack(report: dict[str, Any]) -> dict[str, Any]:
@@ -230,7 +247,7 @@ def analyze_report(msg: func.QueueMessage) -> None:
         return
 
     min_confidence = _config().min_confidence
-    repo.replace_report(report | {
+    analysed = report | {
         "analisis": result.analysis.model_dump() if result.analysis else None,
         "estado": decide_estado(result.analysis, min_confidence),
         "agrees": agrees_with_officer(report["label"], result.analysis),
@@ -238,7 +255,15 @@ def analyze_report(msg: func.QueueMessage) -> None:
         "model": result.model,
         "requestId": result.request_id,
         "analyzedAt": _now(),
-    })
+    }
+    repo.replace_report(analysed)
+    # The analysis is stored; a failing alert run must not retry it (the message would be ignored anyway).
+    try:
+        sent = alerts.on_report_verified(repo, analysed)
+        if sent:
+            logging.info("Report %s: %d alert SMS for reservoir %s", report_id, len(sent), analysed["reservoirId"])
+    except Exception:
+        logging.exception("Alert run after report %s failed; run tools/run_alerts.py", report_id)
 
 
 @app.route(route="alerts/message", methods=["POST"])
@@ -265,3 +290,39 @@ def alert_message(req: func.HttpRequest) -> func.HttpResponse:
         logging.exception("Claude rejected the alert request")
         return _error(500, "internal error")
     return _json(message.model_dump())
+
+
+@app.route(route="subscribers", methods=["POST"])
+def subscribe(req: func.HttpRequest) -> func.HttpResponse:
+    """Registers a farmer for preventive alerts. Idempotent per phone: a resend updates the field."""
+    try:
+        sub_in = SubscriberIn.model_validate_json(req.get_body())
+    except ValidationError as e:
+        return _invalid(e)
+    repo = _repository()
+    existing = repo.get_subscriber(sub_in.phone)
+    now = _now()
+    repo.save_subscriber({
+        "phone": sub_in.phone,
+        "location": sub_in.location.model_dump(),
+        "language": sub_in.language,
+        "createdAt": existing["createdAt"] if existing else now,
+        "updatedAt": now,
+        "optOut": False,
+    })
+    # Never echo what was stored: anyone can post any number.
+    return _json({"phone": sub_in.phone, "status": "registrado"}, 200 if existing else 201)
+
+
+@app.route(route="subscribers/unsubscribe", methods=["POST"])
+def unsubscribe(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        phone = UnsubscribeIn.model_validate_json(req.get_body()).phone
+    except ValidationError as e:
+        return _invalid(e)
+    repo = _repository()
+    existing = repo.get_subscriber(phone)
+    if existing and not existing["optOut"]:
+        repo.save_subscriber(existing | {"optOut": True, "updatedAt": _now()})
+    # Same answer whether or not the number was registered.
+    return _json({"phone": phone, "status": "dado_de_baja"})

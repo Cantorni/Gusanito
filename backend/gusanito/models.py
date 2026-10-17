@@ -147,3 +147,20 @@ MAX_SMS_CHARS = 160
 class AlertMessage(BaseModel):
     sms: str = Field(description=f"SMS text, at most {MAX_SMS_CHARS} characters.")
     voice: str = Field(description="Script for a voice call of about 20 seconds.")
+
+
+# E.164: +, country code, up to 15 digits in all. The PWA checks the same pattern.
+PHONE_PATTERN = r"^\+[1-9][0-9]{7,14}$"
+Language = Literal["es", "en", "ny"]
+
+
+class UnsubscribeIn(_Wire):
+    phone: str = Field(pattern=PHONE_PATTERN)
+
+
+class SubscriberIn(_Wire):
+    """A farmer who wants preventive alerts: a phone number and where their maize field is."""
+
+    phone: str = Field(pattern=PHONE_PATTERN)
+    location: Location  # the field, from GPS or a tap on the map
+    language: Language = "en"

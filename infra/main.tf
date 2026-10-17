@@ -13,18 +13,30 @@ locals {
   tags                 = { project = "gusanito" }
 }
 
+# Hackathon subscriptions hand out a ready-made resource group: set resource_group_name to use it.
 resource "azurerm_resource_group" "main" {
+  count    = var.resource_group_name == null ? 1 : 0
   name     = "rg-${local.name}"
   location = var.location
   tags     = local.tags
+}
+
+data "azurerm_resource_group" "existing" {
+  count = var.resource_group_name == null ? 0 : 1
+  name  = var.resource_group_name
+}
+
+locals {
+  resource_group_name = one(concat(azurerm_resource_group.main[*].name, data.azurerm_resource_group.existing[*].name))
+  location            = one(concat(azurerm_resource_group.main[*].location, data.azurerm_resource_group.existing[*].location))
 }
 
 # One storage account: deployed code, Functions host state and analysis queue, report photos (blob),
 # the reservoirs layer (blob) and reports (table).
 resource "azurerm_storage_account" "main" {
   name                            = "st${local.compact_name}"
-  resource_group_name             = azurerm_resource_group.main.name
-  location                        = azurerm_resource_group.main.location
+  resource_group_name             = local.resource_group_name
+  location                        = local.location
   account_tier                    = "Standard"
   account_replication_type        = "LRS"
   min_tls_version                 = "TLS1_2"
@@ -42,8 +54,8 @@ resource "azurerm_storage_container" "deployment" {
 # permissions are in place when the host starts.
 resource "azurerm_user_assigned_identity" "functions" {
   name                = "id-${local.name}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  resource_group_name = local.resource_group_name
+  location            = local.location
   tags                = local.tags
 }
 
@@ -62,8 +74,8 @@ resource "azurerm_role_assignment" "storage" {
 
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "log-${local.name}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  resource_group_name = local.resource_group_name
+  location            = local.location
   sku                 = "PerGB2018"
   retention_in_days   = 30
   tags                = local.tags
@@ -71,8 +83,8 @@ resource "azurerm_log_analytics_workspace" "main" {
 
 resource "azurerm_application_insights" "main" {
   name                = "appi-${local.name}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  resource_group_name = local.resource_group_name
+  location            = local.location
   workspace_id        = azurerm_log_analytics_workspace.main.id
   application_type    = "other"
   tags                = local.tags
@@ -82,8 +94,8 @@ resource "azurerm_application_insights" "main" {
 # Terraform state.
 resource "azurerm_key_vault" "main" {
   name                       = "kv-${local.compact_name}"
-  resource_group_name        = azurerm_resource_group.main.name
-  location                   = azurerm_resource_group.main.location
+  resource_group_name        = local.resource_group_name
+  location                   = local.location
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
   rbac_authorization_enabled = true
@@ -107,7 +119,7 @@ resource "random_password" "report_token" {
 # The PWA and the receiver page.
 resource "azurerm_static_web_app" "pwa" {
   name                = "stapp-${local.name}"
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = local.resource_group_name
   location            = var.static_web_app_location
   sku_tier            = "Free"
   sku_size            = "Free"
@@ -116,8 +128,8 @@ resource "azurerm_static_web_app" "pwa" {
 
 resource "azurerm_service_plan" "functions" {
   name                = "asp-${local.name}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  resource_group_name = local.resource_group_name
+  location            = local.location
   os_type             = "Linux"
   sku_name            = "FC1"
   tags                = local.tags
@@ -125,8 +137,8 @@ resource "azurerm_service_plan" "functions" {
 
 resource "azurerm_function_app_flex_consumption" "api" {
   name                = "func-${local.name}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  resource_group_name = local.resource_group_name
+  location            = local.location
   service_plan_id     = azurerm_service_plan.functions.id
   https_only          = true
 

@@ -92,3 +92,20 @@ def test_reservoirs_layer(repo):
             blob.delete_blob()
         else:
             blob.upload_blob(json.dumps(previous), overwrite=True)
+
+
+def test_subscriber_and_outbox(repo):
+    phone = f"+2609{uuid.uuid4().int % 10**8:08d}"
+    s = {"phone": phone, "location": {"lat": -14.3, "lng": 31.6}, "language": "ny", "optOut": False,
+         "createdAt": TEST_RECEIVED_AT}
+    try:
+        repo.save_subscriber(s)
+        repo.save_subscriber(s | {"optOut": True})
+        assert repo.get_subscriber(phone) == s | {"optOut": True}
+        message = {"id": str(uuid.uuid4()), "phone": phone, "reservoirIds": ["r1"], "riskLevel": "low",
+                   "sentAt": "2999-01-01T00:00:00+00:00"}
+        repo.add_outbox(message)
+        assert message in repo.list_outbox(since="2998-01-01")
+    finally:
+        repo._table("subscribers").delete_entity("subscriber", phone)
+        repo._table("outbox").delete_entity(phone, message["id"])

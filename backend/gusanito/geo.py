@@ -1,3 +1,4 @@
+import math
 from collections.abc import Iterator
 from typing import Any
 
@@ -52,3 +53,33 @@ def filter_by_bbox(collection: dict[str, Any], bbox: BBox) -> dict[str, Any]:
         if f.get("geometry") and (box := geometry_bbox(f["geometry"])) and intersects(box, bbox)
     ]
     return {**collection, "features": features}
+
+
+EARTH_RADIUS_KM = 6371.0
+COMPASS = ("north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest")
+
+
+def bbox_center(box: BBox) -> tuple[float, float]:
+    """(lat, lon) of the middle of a bbox."""
+    return (box[1] + box[3]) / 2, (box[0] + box[2]) / 2
+
+
+def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle (haversine) distance."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = p2 - p1, math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * EARTH_RADIUS_KM * math.asin(math.sqrt(a))
+
+
+def bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Initial compass bearing from point 1 to point 2, 0-360, 0 = north."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    x = math.sin(dl) * math.cos(p2)
+    y = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return math.degrees(math.atan2(x, y)) % 360
+
+
+def compass(bearing: float) -> str:
+    return COMPASS[round(bearing / 45) % 8]

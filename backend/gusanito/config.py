@@ -16,13 +16,16 @@ class Config:
     # Illustrative cut-off: calibrate it with agronomist-labelled photos.
     min_confidence: float
     report_token: str | None
+    # Local demo without Azurite: one SQLite file (see storage.SqliteRepository). Wins over the above.
+    sqlite_path: str | None = None
 
 
 def load() -> Config:
     connection = os.environ.get("DATA_STORAGE_CONNECTION_STRING") or None
     account = os.environ.get("DATA_STORAGE_ACCOUNT") or None
-    if not connection and not account:
-        raise ConfigError("set DATA_STORAGE_CONNECTION_STRING or DATA_STORAGE_ACCOUNT")
+    sqlite_path = os.environ.get("SQLITE_PATH") or None
+    if not connection and not account and not sqlite_path:
+        raise ConfigError("set SQLITE_PATH, DATA_STORAGE_CONNECTION_STRING or DATA_STORAGE_ACCOUNT")
     return Config(
         storage_connection_string=connection,
         storage_account=account,
@@ -30,6 +33,7 @@ def load() -> Config:
         claude_effort=os.environ.get("CLAUDE_EFFORT", "medium"),
         min_confidence=float(os.environ.get("MIN_CONFIDENCE", "0.7")),
         report_token=os.environ.get("REPORT_TOKEN") or None,
+        sqlite_path=sqlite_path,
     )
 
 

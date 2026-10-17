@@ -23,6 +23,8 @@ class FakeRepository:
         self.reports: dict[str, dict] = {}
         self.photos: dict[str, bytes] = {}
         self.layer: dict | None = None
+        self.subscribers: dict[str, dict] = {}
+        self.outbox: list[dict] = []
 
     def save_photo(self, report_id, index, data, media_type):
         name = f"{report_id}/{index}.jpg"
@@ -49,6 +51,22 @@ class FakeRepository:
     def replace_report(self, report):
         assert set(report) == {"id", *REPORT_FIELDS}
         self.reports[report["id"]] = copy.deepcopy(report)
+
+    # Subscribers and outbox: the alert engine runs after each analysis.
+    def get_subscriber(self, phone):
+        return copy.deepcopy(self.subscribers.get(phone))
+
+    def save_subscriber(self, subscriber):
+        self.subscribers[subscriber["phone"]] = copy.deepcopy(subscriber)
+
+    def list_subscribers(self):
+        return list(self.subscribers.values())
+
+    def add_outbox(self, message):
+        self.outbox.append(message)
+
+    def list_outbox(self, since=None):
+        return [m for m in self.outbox if not since or m["sentAt"] >= since]
 
 
 class FakeAnalyzer:

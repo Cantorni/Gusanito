@@ -1,6 +1,6 @@
 // Local/shareable dev server: serves this folder and proxies /api/* to the Functions host, so the PWA,
 // the receiver page and the API share one origin (as relative /api paths expect).
-// Run from frontend/: node dev-server.js   (needs `func start` running in backend/)
+// Run from frontend/: node dev-server.js   (needs the API on :7071: backend/tools/local_api.py or `func start`)
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -9,7 +9,7 @@ const ROOT = __dirname;
 const FUNCTIONS = new URL(process.env.FUNCTIONS_URL || 'http://127.0.0.1:7071');
 const STATIC = {
   '/': 'index.html', '/index.html': 'index.html', '/receiver.html': 'receiver.html', '/sw.js': 'sw.js',
-  '/config.js': 'config.js', '/manifest.json': 'manifest.json', '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png',
+  '/config.js': 'config.js', '/queue.js': 'queue.js', '/manifest.json': 'manifest.json', '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png',
 };
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.css': 'text/css', '.woff2': 'font/woff2' };
 
@@ -19,7 +19,7 @@ function proxy(req, res) {
     up => { res.writeHead(up.statusCode, up.headers); up.pipe(res); });
   upstream.on('error', () => {
     if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: `Functions host not reachable at ${FUNCTIONS.origin}. Run func start in backend/.` }));
+    res.end(JSON.stringify({ error: `Functions host not reachable at ${FUNCTIONS.origin}. Run backend/tools/local_api.py (or func start).` }));
   });
   req.pipe(upstream);
 }
