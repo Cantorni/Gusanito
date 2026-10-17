@@ -25,17 +25,19 @@
 
   /* hero */
   .hero { background: radial-gradient(900px 500px at 80% -10%, #1f7a4355, transparent 60%), var(--hero); color: var(--hero-ink); padding: 0 0 96px; }
-  nav { display: flex; justify-content: space-between; align-items: center; padding: 22px 0; }
+  nav { display: flex; flex-wrap: wrap; gap: 10px 22px; justify-content: space-between; align-items: center; padding: 22px 0; }
   nav b { font-size: 1.2rem; letter-spacing: -.02em; }
   nav b span { color: #7ddc9f; }
-  nav a { text-decoration: none; font-weight: 700; font-size: .95rem; opacity: .85; margin-left: 22px; }
+  nav a { text-decoration: none; font-weight: 700; font-size: .95rem; opacity: .85; margin-left: 22px; white-space: nowrap; }
+  nav a:first-child { margin-left: 0; }
   nav a:hover { opacity: 1; }
   .hero h1 { font-size: clamp(2.5rem, 7vw, 5rem); max-width: 14ch; margin-top: 70px; }
   .hero h1 em { font-style: normal; color: #7ddc9f; }
   .hero p.lead { font-size: clamp(1.05rem, 2vw, 1.3rem); max-width: 52ch; margin: 22px 0 34px; color: #c3d2c6; }
   .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 24px; border-radius: 99px; font-weight: 700; text-decoration: none; border: 0; cursor: pointer; font-size: 1rem; }
   .btn.primary { background: #7ddc9f; color: #062412; }
-  .btn.ghost { border: 1.5px solid #ffffff44; color: var(--hero-ink); margin-left: 10px; }
+  .btn.ghost { border: 1.5px solid #ffffff44; color: var(--hero-ink); }
+  .ctas { display: flex; flex-wrap: wrap; gap: 10px; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 64px; }
   .stat { border: 1px solid #ffffff22; border-radius: var(--radius); padding: 18px 20px; background: #ffffff08; }
   .stat b { display: block; font-size: 2rem; letter-spacing: -.03em; }
@@ -61,6 +63,8 @@
   .views { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; }
   .views button { border: 0; border-radius: 99px; padding: 8px 14px; font-weight: 700; font-size: .82rem; cursor: pointer; background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--ink); box-shadow: 0 1px 4px #0003; }
   .views button.on { background: var(--brand); color: #fff; }
+  .mapbox .leaflet-top.leaflet-right { top: 46px; }  /* zoom buttons under the view buttons */
+  @media (max-width: 560px) { .views { top: 64px; left: 12px; right: auto; } }
   .leaflet-container { font-family: inherit; }
   .legend { position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .78rem; background: color-mix(in srgb, var(--surface) 88%, transparent); padding: 8px 12px; border-radius: 12px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
@@ -112,7 +116,7 @@
     </nav>
     <h1>Encontrar el gusano <em>antes</em> de que llegue al maíz.</h1>
     <p class="lead">En la estación seca el gusano cogollero sobrevive en pocos parches verdes. Un satélite los señala, un extensionista los confirma con una foto y un SMS avisa a los agricultores cercanos, aunque no tengan datos.</p>
-    <a class="btn primary" href="#demo">▶ Ver la simulación</a><a class="btn ghost" href="#como">Cómo funciona</a>
+    <div class="ctas"><a class="btn primary" href="#demo">▶ Ver la simulación</a><a class="btn ghost" href="#como">Cómo funciona</a></div>
     <div class="stats" id="heroStats"></div>
   </div>
 </header>
@@ -267,7 +271,8 @@ let map, patchMk, farmerMk, pilotBox, wideLayer;
 const GREEN = [[.9, '#17893f', 'alta'], [.8, '#5fbf7f', 'media'], [.7, '#b6e3c4', 'baja']];
 
 function initMap() {
-  map = L.map('map', { zoomControl: true, preferCanvas: true, zoomSnap: .5, maxZoom: 14, minZoom: 5 }).setView(NEAR.center, NEAR.zoom);
+  map = L.map('map', { zoomControl: false, preferCanvas: true, zoomSnap: .5, maxZoom: 14, minZoom: 5 }).setView(NEAR.center, NEAR.zoom);
+  L.control.zoom({ position: 'topright' }).addTo(map);  // top left is the day tag, bottom the legend
     protomapsL.leafletLayer({ url: '/zambia.pmtiles', flavor: 'grayscale', lang: 'es', maxDataZoom: 12 }).addTo(map);
   // The pilot zone: everything the model scored. It is a small square of a very big country.
   const la = D.patches.map(p => p[1]), lo = D.patches.map(p => p[2]);

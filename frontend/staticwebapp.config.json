@@ -8,6 +8,7 @@
   },
   "mimeTypes": {
     ".json": "application/json",
+    ".geojson": "application/geo+json",
     ".pmtiles": "application/octet-stream"
   }
 }
