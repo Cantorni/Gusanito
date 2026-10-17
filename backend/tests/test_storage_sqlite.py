@@ -58,3 +58,22 @@ def test_layer_subscribers_outbox(repo):
         repo.add_outbox({"id": day, "phone": s["phone"], "sentAt": day, "reservoirIds": ["r1"], "riskLevel": "low"})
     assert [m["id"] for m in repo.list_outbox()] == ["2026-09-01", "2026-09-10"]
     assert [m["id"] for m in repo.list_outbox(since="2026-09-05")] == ["2026-09-10"]
+
+
+def test_reset_demo_keeps_field_data(repo, monkeypatch):
+    monkeypatch.setenv("SQLITE_PATH", "unused")  # reset_demo sets a default on import; keep it out of other tests
+    import reset_demo
+
+    field, demo = new_report(), new_report(demo=True)
+    for r in (field, demo):
+        repo.save_photo(r["id"], 0, b"\xff\xd8data", "image/jpeg")
+        repo.create_report(r)
+    repo.save_subscriber({"phone": "+56912345678", "location": {"lat": -14.3, "lng": 31.6}, "optOut": False})
+    repo.add_outbox({"id": "m1", "phone": "+56912345678", "sentAt": "2026-10-17T00:00:00+00:00"})
+
+    assert reset_demo.reset(repo, n_farmers=3) == (1, 1)
+    assert repo.list_outbox() == []
+    assert [r["id"] for r in repo.list_reports()] == [field["id"]]
+    assert repo.read_photo(demo["photos"][0]["file"]) is None and repo.read_photo(field["photos"][0]["file"])
+    assert {s["phone"] for s in repo.list_subscribers()} == {"+56912345678", "+260971000000", "+260971000001", "+260971000002"}
+    assert len(repo.read_reservoirs_layer()["features"]) == 5
