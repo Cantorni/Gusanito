@@ -124,7 +124,7 @@
   .big { font-size: 2.2rem; font-weight: 700; letter-spacing: -.03em; color: var(--brand-ink); }
   .note { color: var(--muted); font-size: .95rem; margin-top: 6px; }
   .phone { background: #e6ebe7; border: 3px solid var(--ink); border-radius: 28px; padding: 10px; margin: 0 auto; width: min(100%, 340px); }
-  .phone .scr { background: #fff; border-radius: 18px; padding: 12px; height: 280px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; }
+  .phone .scr { background: #fff; border-radius: 18px; padding: 12px; height: 360px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; }
   .sms { background: #f1f4f2; color: #111; border: 1px solid var(--rule); border-radius: 14px 14px 14px 4px; padding: 8px 11px; font-size: .82rem; line-height: 1.35; animation: pop .35s; word-break: break-word; }
   .sms small { display: block; color: #4a554d; font-size: .72rem; margin-bottom: 2px; }
   .sms.high { border-left: 6px solid var(--warn); } .sms.medium { border-left: 6px solid var(--sun); } .sms.low { border-left: 6px solid #4a90d9; }
@@ -306,7 +306,7 @@
           <p class="note" id="liftNote"></p>
         </div>
         <div class="card panel">
-          <h3>SMS enviados hoy: <span id="smsCount">0</span> · familias avisadas: <span id="reached">0</span></h3>
+          <h3>SMS hoy: <span id="smsCount">0</span> · familias avisadas: <span id="reached">0</span></h3>
           <div class="phone"><div class="scr" id="phone"></div></div>
         </div>
       </div>
@@ -501,10 +501,11 @@ function show(n) {
     `<div><span><i style="background:${cols[i]}"></i>${names[i]} · ${x.n} puntos</span><b>${x.rate === null ? '–' : Math.round(x.rate * 100) + ' % con larvas'}</b></div>`).join('');
   $('smsCount').textContent = t.sms.length; $('reached').textContent = alerted.size;
   const lvl = { high: 'Alto', medium: 'Medio', low: 'Bajo' };
-  const shown = t.sms.slice(0, 4).reverse();
-  $('phone').innerHTML = shown.length ? shown.map(s =>
-    `<div class="sms ${s.level}"><small>Para …${s.phone} · riesgo ${lvl[s.level]} · ${s.km} km</small>${s.text}</div>`).join('')
-    : '<div class="empty">Ningún SMS nuevo hoy</div>';
+  // The phone keeps the latest messages of all the days so far, so it never looks empty between alerts.
+  const feed = D.timeline.slice(0, n + 1).flatMap(x => x.sms.map(m => ({ ...m, day: x.day }))).slice(-3);
+  $('phone').innerHTML = feed.length ? feed.map(m =>
+    `<div class="sms ${m.level}"><small>Día ${m.day} · para …${m.phone} · riesgo ${lvl[m.level]} · ${m.km} km</small>${m.text}</div>`).join('')
+    : '<div class="empty">Aún no se envía ningún SMS</div>';
 }
 
 function play() {

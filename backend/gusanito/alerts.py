@@ -141,16 +141,16 @@ def risk_level(reservoir: Reservoir, km: float, s: Settings) -> str | None:
 # Nyanja text is a first draft: have a native speaker check it before using it with farmers.
 TEMPLATES = {
     "es": (
-        "Gusanito: reservorio de gusano cogollero {state} a {km} km al {dir} de tu campo. Revisa tu maiz en {days} dias. Mapa:",
-        "Gusanito: gusano cogollero {state} a {km} km al {dir}. Revisa tu maiz. Mapa:",
+        "BRASA: reservorio de gusano cogollero {state} a {km} km al {dir} de tu campo. Revisa tu maiz en {days} dias. Mapa:",
+        "BRASA: gusano cogollero {state} a {km} km al {dir}. Revisa tu maiz. Mapa:",
     ),
     "en": (
-        "Gusanito: {state} fall armyworm reservoir {km} km {dir} of your field. Check your maize within {days} days. Map:",
-        "Gusanito: {state} fall armyworm {km} km {dir}. Check your maize. Map:",
+        "BRASA: {state} fall armyworm reservoir {km} km {dir} of your field. Check your maize within {days} days. Map:",
+        "BRASA: {state} fall armyworm {km} km {dir}. Check your maize. Map:",
     ),
     "ny": (
-        "Gusanito: fall armyworm {state} {km} km {dir} kwa munda wanu. Yang'anani chimanga chanu m'masiku {days}. Mapu:",
-        "Gusanito: fall armyworm {state} {km} km {dir}. Yang'anani chimanga. Mapu:",
+        "BRASA: fall armyworm {state} {km} km {dir} kwa munda wanu. Yang'anani chimanga chanu m'masiku {days}. Mapu:",
+        "BRASA: fall armyworm {state} {km} km {dir}. Yang'anani chimanga. Mapu:",
     ),
 }
 STATE_WORDS = {

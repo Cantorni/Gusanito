@@ -3,8 +3,8 @@
 The predictions are real: every day a model is retrained on the verified patches so far (same features and
 learner as ml/train.py) and scores all 1,257 real patches. What is synthetic is the test data: whether a visited
 patch really has larvae (the hidden rule of ml/labels.py plus a coin toss), the farmers, and the visit plan.
-Confirmed visits never appear on the map; they only become training labels. The SMS come from the real alert
-engine (backend/gusanito/alerts.py), fed with that day's predictions only.
+Confirmed visits never appear on the map; they become training labels and feed the alert engine, which escalates
+the SMS of the farmers near a confirmed patch. The SMS come from the real engine (backend/gusanito/alerts.py).
 
 Two teams make the same number of visits per day against the SAME outcomes: one goes where the model ranks
 highest, the other at random.
@@ -30,7 +30,7 @@ from gusanito import alerts  # noqa: E402
 from ml import features, labels, train  # noqa: E402
 
 OUT = ROOT / "landing" / "data.json"
-DAYS, VISITS_PER_DAY, FARMERS, INITIAL = 14, 12, 30, 100
+DAYS, VISITS_PER_DAY, FARMERS, INITIAL = 14, 12, 60, 100
 DAY0 = datetime(2026, 9, 15, 7, 0, tzinfo=UTC)
 # Base of the map link in the SMS: the deployed PWA (terraform output pwa_url), so the links on the landing work.
 PWA_URL = os.environ.get("PWA_URL", "https://zealous-coast-0305c750f.4.azurestaticapps.net").rstrip("/")
@@ -64,6 +64,7 @@ def main() -> None:
     visited = set(start)
     random_queue = [p for p in rng.permutation(patches.patch_id) if p not in visited]
     outbox: list[dict] = []
+    state: dict[str, str] = {}  # verification of the visited patches, as the alert engine sees it
     settings = alerts.Settings(pwa_url=PWA_URL, min_probability=0.9, per_farmer=True)
     found = {"guided": 0, "random": 0}
     seen = {"guided": 0, "random": 0}
@@ -76,12 +77,13 @@ def main() -> None:
         if day > 0:
             for pid in list(patches[~patches.patch_id.isin(visited)].nlargest(VISITS_PER_DAY, "prob").patch_id):
                 visited.add(pid); labelled[pid] = bool(real[pid]); seen["guided"] += 1; found["guided"] += int(real[pid])
+                state[pid] = "reservorio_confirmado" if real[pid] else "hospedero_sin_senales"  # drives the alerts, never drawn on the map
             for pid in [random_queue.pop(0) for _ in range(VISITS_PER_DAY)]:
                 seen["random"] += 1; found["random"] += int(real[pid])
             # Tomorrow's model learns from today's reports; today's map still shows the model they were planned with.
             patches["prob"] = fit(patches, labelled)(patches)
             auc = float(roc_auc_score(hold.patch_id.map(real).astype(int), patches.set_index("patch_id").loc[hold.patch_id, "prob"]))
-        reservoirs = [alerts.Reservoir(r.patch_id, r.lat, r.lon, float(r.prob), False, None)
+        reservoirs = [alerts.Reservoir(r.patch_id, r.lat, r.lon, float(r.prob), state.get(r.patch_id) == "reservorio_confirmado", state.get(r.patch_id))
                       for r in patches[patches.prob >= 0.7].itertuples()]
         sent = alerts.plan(reservoirs, farmers, outbox, settings)
         for a in sent:
