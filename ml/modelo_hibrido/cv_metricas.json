@@ -1,0 +1,74 @@
+{
+  "n": 2182,
+  "prevalencia": 0.6178,
+  "bloques_espaciales": 248,
+  "linea_base": {
+    "auc": 0.5,
+    "exactitud_clase_mayoritaria": 0.6178
+  },
+  "modelos": {
+    "clima": {
+      "auc_por_parte": [
+        0.5918,
+        0.7349,
+        0.6591,
+        0.5797,
+        0.7216
+      ],
+      "auc_media": 0.6574,
+      "auc_desv": 0.064,
+      "auc_oof": 0.6599,
+      "exactitud": 0.6389,
+      "precision": 0.7108,
+      "recall": 0.7003,
+      "matriz_confusion": {
+        "VP": 944,
+        "VN": 450,
+        "FP": 384,
+        "FN": 404
+      }
+    },
+    "imagen": {
+      "auc_por_parte": [
+        0.5916,
+        0.7069,
+        0.7168,
+        0.733,
+        0.745
+      ],
+      "auc_media": 0.6987,
+      "auc_desv": 0.0551,
+      "auc_oof": 0.692,
+      "exactitud": 0.6801,
+      "precision": 0.7094,
+      "recall": 0.8168,
+      "matriz_confusion": {
+        "VP": 1101,
+        "VN": 383,
+        "FP": 451,
+        "FN": 247
+      }
+    },
+    "hibrido": {
+      "auc_por_parte": [
+        0.6518,
+        0.7977,
+        0.7398,
+        0.72,
+        0.7636
+      ],
+      "auc_media": 0.7346,
+      "auc_desv": 0.0488,
+      "auc_oof": 0.734,
+      "exactitud": 0.6929,
+      "precision": 0.7312,
+      "recall": 0.7953,
+      "matriz_confusion": {
+        "VP": 1072,
+        "VN": 440,
+        "FP": 394,
+        "FN": 276
+      }
+    }
+  }
+}
