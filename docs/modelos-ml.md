@@ -37,6 +37,10 @@ Un parche que está verde todo el año no dice nada sobre el gusano, así que `m
 
 Efecto: en la zona piloto de 1.257 parches quedan 1.055; en el bloque de 25 celdas de la landing, de 25.007 quedan 12.257. Límite conocido: un campo regado todo el año también tiene el NDVI plano y se descarta, aunque podría ser un refugio real; y WorldCover es de 2021.
 
+## Cobertura de Zambia
+
+`ml/zambia_tiles.py` reparte el país en 458 celdas de 0,4° dentro del contorno oficial y las procesa con un tope de tiempo. En la última pasada hay **66 de 459 celdas** (≈14 %): 19.791 parches dentro de las fronteras, entrenados con el modelo v8 (AUC 0,88 sobre etiquetas simuladas, `python -m ml.pipeline --curve --zambia`). El resto del país está pendiente; se completa relanzando `python -m ml.zambia_tiles --workers 12`, que solo hace las celdas que faltan (unas 100 s por celda).
+
 ## Aviso sobre la demo
 
 La landing (`landing/`, servida en `/landing/` por `frontend/dev-server.js`, datos de `python -m ml.demo_timeline`) dibuja **solo predicciones reales** del modelo local: cada día lo reentrena con las parcelas verificadas hasta entonces y puntúa los 1.055 parches. Se muestran en tres tonos de verde según la probabilidad (70-80 %, 80-90 %, 90 % o más) y no hay zonas "confirmadas" en el mapa: las visitas solo se usan para reentrenar.

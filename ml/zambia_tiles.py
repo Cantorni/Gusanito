@@ -76,11 +76,11 @@ def assemble(cells: list[tuple[int, int]]) -> pd.DataFrame:
     return patches
 
 
-def score(patches: pd.DataFrame) -> None:
+def score(patches: pd.DataFrame, tiles: tuple[int, int]) -> None:
     model, version = train.load_current()
     patches = patches.assign(prob=model.predict_proba(patches[train.FEATURES])[:, 1])
     keep = patches[patches.prob >= 0.7]
-    OUT.write_text(json.dumps({"model": f"v{version}", "total": len(patches),
+    OUT.write_text(json.dumps({"model": f"v{version}", "total": len(patches), "tiles": tiles[0], "tilesTotal": tiles[1],
                                "points": [[r.patch_id, round(r.lat, 4), round(r.lon, 4), round(float(r.prob), 2), r.area_ha] for r in keep.itertuples()]},
                               separators=(",", ":")))
     print(f"{len(patches)} patches, {len(keep)} with probability >= 0.7 -> {OUT}")
@@ -102,7 +102,7 @@ def main() -> None:
                 print(f"[{n}/{len(todo)}] {r}", flush=True)
     patches = assemble(cells)
     print(f"table: {len(patches)} patches inside the outline -> {TABLE}")
-    score(patches)
+    score(patches, (sum((TILES / f"{i}_{j}.csv").exists() for i, j in cells) + 1, len(cells) + 1))
 
 
 if __name__ == "__main__":

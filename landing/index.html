@@ -287,7 +287,7 @@ function initMap() {
     const inPilot = new Set(D.patches.map(p => p[0]));
     const pts = w.points.filter(p => !inPilot.has(p[0]));
     wideLayer = new PointsLayer(pts).addTo(map);
-    $('wideNote').textContent = `${pts.length.toLocaleString('es')} puntos más en el resto de Zambia, con el mismo modelo.`;
+    $('wideNote').textContent = `${pts.length.toLocaleString('es')} puntos más en ${w.tiles} de ${w.tilesTotal} celdas de Zambia ya procesadas (el resto, pendiente).`;
   });
   map.on('zoomend', () => show(day));
   $('vNear').onclick = () => view(NEAR); $('vMid').onclick = () => view(MID); $('vFar').onclick = () => view(FAR);
