@@ -180,7 +180,8 @@ terraform init && terraform apply
 az keyvault secret set --vault-name "$(terraform output -raw key_vault)" --name anthropic-api-key --value "$ANTHROPIC_API_KEY"
 az functionapp restart -g "$(terraform output -raw resource_group)" -n "$(terraform output -raw function_app)"
 
-./deploy.sh                          # publishes the API and the PWA (pointed at the Function App)
+./deploy.sh                          # publishes the API, the PWA (pointed at the Function App) and the landing page at /landing/
+./deploy.sh web                      # later changes to the PWA or the landing page only: skips the API
 terraform output -raw report_token   # for the receiver page
 ```
 
