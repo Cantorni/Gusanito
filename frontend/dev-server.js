@@ -28,6 +28,14 @@ http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname.startsWith('/api/')) return proxy(req, res);
 
+  // Landing page of the demo (../landing): same origin as the PWA, so it reuses vendor/ and the offline map.
+  const LANDING = path.join(ROOT, '..', 'landing');
+  const lf = { '/landing': 'index.html', '/landing/': 'index.html', '/landing/index.html': 'index.html', '/landing/data.json': 'data.json' }[url.pathname];
+  if (lf) {
+    res.writeHead(200, { 'Content-Type': TYPES[path.extname(lf)], 'Cache-Control': 'no-cache' });
+    return fs.createReadStream(path.join(LANDING, lf)).pipe(res);
+  }
+
   // whitelist: listed files, plus vendor/ and the offline map (path.normalize + prefix check blocks ../)
   const f = STATIC[url.pathname] || (/^\/(vendor\/|zambia\.pmtiles$)/.test(url.pathname) ? url.pathname.slice(1) : null);
   const full = f && path.join(ROOT, path.normalize(f));

@@ -78,6 +78,15 @@ def test_dedup_and_escalation():
     assert plan(found, [sub(km_south=1)], [{**sent[0], "status": "fallido"}], S)
 
 
+def test_per_farmer_alerts_only_when_more_urgent_than_anything_sent():
+    s = Settings(per_farmer=True)
+    outbox = [{"phone": "+260971000001", "reservoirId": "r1", "reservoirIds": ["r1"], "riskLevel": "medium"}]
+    # A different reservoir at the same urgency stays silent; a more urgent one gets through.
+    assert plan([reservoir(rid="r2", km_north=4)], [sub()], outbox, s) == []
+    assert [a.risk_level for a in plan([reservoir(rid="r2", km_north=1.5)], [sub()], outbox, s)] == ["high"]
+    assert len(plan([reservoir(rid="r2", km_north=4)], [sub()], outbox, S)) == 1  # off by default
+
+
 def test_most_severe_reservoir_leads_and_all_go_in_the_link():
     found = [reservoir(km_north=4, rid="far"), reservoir(km_north=1, rid="near")]
     (a,) = plan(found, [sub()], [], S)

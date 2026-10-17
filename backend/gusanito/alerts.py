@@ -39,6 +39,8 @@ class Settings:
     min_probability: float = 0.8
     # The same subscriber is not alerted again about the same reservoir within this time, unless it got worse.
     dedup_days: int = 14
+    # One SMS per farmer only when the situation got more urgent than anything already sent to them (any reservoir).
+    per_farmer: bool = False
     # Base of the offline link in the SMS: the installed PWA's address.
     pwa_url: str = "http://127.0.0.1:8787"
 
@@ -52,6 +54,7 @@ class Settings:
             radius_km=float(env("ALERT_RADIUS_KM", d.radius_km)),
             min_probability=float(env("ALERT_MIN_PROBABILITY", d.min_probability)),
             dedup_days=int(env("ALERT_DEDUP_DAYS", d.dedup_days)),
+            per_farmer=env("ALERT_PER_FARMER", "") == "1",
             pwa_url=env("PWA_URL", d.pwa_url).rstrip("/"),
         )
 
@@ -204,6 +207,11 @@ def plan(found: list[Reservoir], subscribers: list[dict[str, Any]], outbox: list
             key = (m["phone"], rid)
             already[key] = min(already.get(key, 9), LEVELS.index(m["riskLevel"]))
 
+    sent_level: dict[str, int] = {}  # phone -> most severe level index sent for any reservoir
+    for m in outbox:
+        if m.get("status") != "fallido":
+            sent_level[m["phone"]] = min(sent_level.get(m["phone"], 9), LEVELS.index(m["riskLevel"]))
+
     alerts = []
     for sub in subscribers:
         if sub.get("optOut"):
@@ -221,6 +229,8 @@ def plan(found: list[Reservoir], subscribers: list[dict[str, Any]], outbox: list
         if not candidates:
             continue
         candidates.sort(key=lambda c: (c[0], c[1]))
+        if s.per_farmer and candidates[0][0] >= sent_level.get(sub["phone"], 9):
+            continue
         _, km, main, level = candidates[0]
         points = [(r.lat, r.lon, 0.99 if r.confirmed else r.probability) for _, _, r, _ in candidates]
         direction = compass(bearing_deg(field["lat"], field["lng"], main.lat, main.lon))
