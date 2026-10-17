@@ -44,7 +44,7 @@ def fit(patches: pd.DataFrame, labelled: dict[str, bool]):
 
 
 def main() -> None:
-    patches = pd.read_csv(features.PATCHES_CSV)
+    patches = features.load()
     rng = np.random.default_rng(11)
     patches["real"] = rng.random(len(patches)) < labels._truth(patches).to_numpy()  # hidden outcome of a visit
     real = dict(zip(patches.patch_id, patches.real))

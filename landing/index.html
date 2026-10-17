@@ -135,15 +135,16 @@
   <div class="wrap">
     <div class="eyebrow">Simulación</div>
     <h2>Quince días en la zona de Chimunsi <span class="badge">datos sintéticos</span></h2>
-    <p class="sub">Cada punto verde es una predicción real del modelo sobre imágenes de Sentinel-2, con su probabilidad (pasa el cursor). Lo sintético son los datos de prueba: si cada parche tiene gusano de verdad, los agricultores y las visitas. Las visitas confirmadas no se dibujan: solo sirven para reentrenar el modelo cada día. Dos equipos hacen las mismas visitas frente a los mismos resultados: uno sigue el ranking del modelo y el otro va al azar.</p>
+    <p class="sub">Cada punto verde es una predicción real del modelo sobre imágenes de Sentinel-2, con su probabilidad (pasa el cursor). Aleja el mapa para ver cuánto se extiende; fuera de la zona piloto son extrapolaciones, porque el modelo solo aprendió de ella. Lo sintético son los datos de prueba: si cada parche tiene gusano de verdad, los agricultores y las visitas. Las visitas confirmadas no se dibujan: solo sirven para reentrenar el modelo cada día. Dos equipos hacen las mismas visitas frente a los mismos resultados: uno sigue el ranking del modelo y el otro va al azar.</p>
 
     <div class="stage">
       <div class="card">
         <div class="mapbox">
           <div id="map" role="img" aria-label="Mapa de Zambia con parches, visitas y agricultores"></div>
-          <div class="views"><button id="vNear" class="on">Chimunsi</button><button id="vFar">Toda Zambia</button></div>
+          <div class="views"><button id="vNear" class="on">Chimunsi</button><button id="vMid">Región</button><button id="vFar">Toda Zambia</button></div>
           <div class="daytag" id="daytag">Día 0</div>
           <div class="legend">
+            <b id="wideNote" style="flex-basis:100%;font-weight:400;color:var(--muted)"></b>
             <span><i style="background:#17893f"></i>Alta ≥ 90 %</span>
             <span><i style="background:#5fbf7f"></i>Media 80–90 %</span>
             <span><i style="background:#b6e3c4"></i>Baja 70–80 %</span>
@@ -209,7 +210,7 @@ fetch('/landing/data.json').then(r => r.json()).then(d => { D = d; init(); }).ca
 function init() {
   const last = D.timeline[D.timeline.length - 1];
   $('heroStats').innerHTML = [
-    [D.patches.length.toLocaleString('es'), 'parches verdes analizados'],
+    [D.patches.length.toLocaleString('es'), 'parches verdes de estación seca analizados (sin bosque, agua ni verde todo el año)'],
     [D.layerSize, 'puntos con probabilidad ≥ 70 % (modelo)'],
     [`${Math.round(D.layerRate * 100)}% vs ${Math.round(D.baseRate * 100)}%`, 'con larvas entre los puntos señalados, frente a un parche al azar (datos de prueba sintéticos)'],
     [new Set(D.timeline.flatMap(t => t.sms.map(s => s.phone))).size, 'agricultores avisados en 15 días (simulado)'],
@@ -223,8 +224,47 @@ function init() {
   show(0);
 }
 
-const NEAR = { center: [-14.30, 31.60], zoom: 11 }, FAR = { center: [-13.1, 27.8], zoom: 6 };
-let map, patchMk, farmerMk, ringLayer, pilotBox;
+// One canvas for all the points outside the pilot zone. Hover finds the nearest point through a grid index.
+const PointsLayer = L.Layer.extend({
+  initialize(pts) { this.pts = pts; },
+  onAdd(map) {
+    this._map = map;
+    this._c = L.DomUtil.create('canvas', 'leaflet-zoom-hide');
+    this._c.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;z-index:350';
+    map.getPanes().overlayPane.appendChild(this._c);
+    this._tip = L.tooltip({ direction: 'top', offset: [0, -6] });
+    map.on('moveend zoomend resize', this._draw, this).on('mousemove', this._hover, this).on('mouseout', () => map.closeTooltip(this._tip));
+    this._draw();
+  },
+  onRemove(map) { this._c.remove(); map.off('moveend zoomend resize', this._draw, this).off('mousemove', this._hover, this); },
+  _radius() { return Math.max(1.2, Math.min(7, (this._map.getZoom() - 5) * 1.1)); },
+  _draw() {
+    const map = this._map, size = map.getSize(), c = this._c, g = c.getContext('2d');
+    L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
+    c.width = size.x; c.height = size.y;
+    const r = this._radius(), b = map.getBounds().pad(.05);
+    this._vis = [];
+    for (const p of this.pts) {
+      if (!b.contains([p[1], p[2]])) continue;
+      const pt = map.latLngToContainerPoint([p[1], p[2]]), tier = GREEN.find(t => p[3] >= t[0]);
+      g.fillStyle = tier[1]; g.globalAlpha = .85; g.beginPath(); g.arc(pt.x, pt.y, r, 0, 7); g.fill();
+      this._vis.push([pt.x, pt.y, p]);
+    }
+  },
+  _hover(e) {
+    const r = this._radius() + 3, x = e.containerPoint.x, y = e.containerPoint.y;
+    let best = null, bd = r * r;
+    for (const v of this._vis || []) { const d = (v[0] - x) ** 2 + (v[1] - y) ** 2; if (d < bd) { bd = d; best = v[2]; } }
+    if (!best) return this._map.closeTooltip(this._tip);
+    const tier = GREEN.find(t => best[3] >= t[0]);
+    this._tip.setLatLng([best[1], best[2]]).setContent(`<b>${Math.round(best[3] * 100)} %</b> de probabilidad · confianza ${tier[2]}<br>${best[0]} · ${best[4]} ha<br><i>Fuera de la zona de entrenamiento piloto: extrapolación</i>`);
+    this._map.openTooltip(this._tip);
+  },
+});
+
+const MID = { center: [-14.30, 31.60], zoom: 8.5 }, NEAR = { center: [-14.30, 31.60], zoom: 11 }, FAR = { center: [-13.1, 27.8], zoom: 6 };
+let map, patchMk, farmerMk, pilotBox, wideLayer;
+const GREEN = [[.9, '#17893f', 'alta'], [.8, '#5fbf7f', 'media'], [.7, '#b6e3c4', 'baja']];
 
 function initMap() {
   map = L.map('map', { zoomControl: true, preferCanvas: true, zoomSnap: .5, maxZoom: 14, minZoom: 5 }).setView(NEAR.center, NEAR.zoom);
@@ -233,26 +273,34 @@ function initMap() {
   const la = D.patches.map(p => p[1]), lo = D.patches.map(p => p[2]);
   pilotBox = L.rectangle([[Math.min(...la), Math.min(...lo)], [Math.max(...la), Math.max(...lo)]],
     { color: '#d9480f', weight: 2, fill: false, dashArray: '6 5' }).addTo(map);
-  pilotBox.bindTooltip('Zona piloto · 1.257 parches · ≈0,25 % de Zambia', { permanent: false, direction: 'top' });
+  pilotBox.bindTooltip(`Zona piloto · ${D.patches.length.toLocaleString('es')} parches · ≈0,25 % de Zambia`, { permanent: false, direction: 'top' });
   patchMk = new Map(D.patches.map(([id, lat, lon, ha]) => {
     const m = L.circleMarker([lat, lon], { weight: 1, color: '#0b3d1f', fillOpacity: .85 }).addTo(map);
     m.bindTooltip('', { direction: 'top', offset: [0, -4] });
     return [id, m];
   }));
   farmerMk = new Map(D.farmers.map(([ph, lat, lon]) => [ph, L.circleMarker([lat, lon], { weight: 1.5, color: '#fff' }).addTo(map)]));
+  // Country outline, then every other prediction of the model, drawn on one canvas (tens of thousands of points).
+  fetch('/landing/zambia-outline.geojson').then(r => r.ok ? r.json() : null).then(o => o && L.geoJSON(o, { style: { color: '#0f4d2a', weight: 2, fill: false }, interactive: false }).addTo(map));
+  fetch('/landing/zambia.json').then(r => r.ok ? r.json() : null).then(w => {
+    if (!w) return;
+    const inPilot = new Set(D.patches.map(p => p[0]));
+    const pts = w.points.filter(p => !inPilot.has(p[0]));
+    wideLayer = new PointsLayer(pts).addTo(map);
+    $('wideNote').textContent = `${pts.length.toLocaleString('es')} puntos más en el resto de Zambia, con el mismo modelo.`;
+  });
   map.on('zoomend', () => show(day));
-  $('vNear').onclick = () => view(NEAR); $('vFar').onclick = () => view(FAR);
+  $('vNear').onclick = () => view(NEAR); $('vMid').onclick = () => view(MID); $('vFar').onclick = () => view(FAR);
 }
 function view(v) {
   map.flyTo(v.center, v.zoom, { duration: 2.4 });
-  $('vNear').classList.toggle('on', v === NEAR); $('vFar').classList.toggle('on', v === FAR);
+  $('vNear').classList.toggle('on', v === NEAR); $('vMid').classList.toggle('on', v === MID); $('vFar').classList.toggle('on', v === FAR);
 }
 
 function show(n) {
   day = n; $('slider').value = n; $('daytag').textContent = `Día ${n}`;
   const t = D.timeline[n], z = map.getZoom();
   const k = Math.max(1.6, Math.min(9, (z - 6) * 1.5)); // marker size follows the zoom
-  const GREEN = [[.9, '#17893f', 'alta'], [.8, '#5fbf7f', 'media'], [.7, '#b6e3c4', 'baja']];
   D.patches.forEach(([id, , , ha], i) => {
     const prob = t.p[i], m = patchMk.get(id), tier = GREEN.find(g => prob >= g[0]);
     if (!tier) { m.setStyle({ opacity: 0, fillOpacity: 0, radius: 0 }); m.unbindTooltip(); return; } // below 70 %: not a predicted reservoir

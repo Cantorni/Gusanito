@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ml import features, labels, score, train
+from ml import features, labels, score, train, zambia_tiles
 
 BACKEND = Path(__file__).resolve().parent.parent / "backend"
 
@@ -26,13 +26,14 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--curve", action="store_true")
     ap.add_argument("--publish", action="store_true")
+    ap.add_argument("--zambia", action="store_true", help="train and score on the whole-country table (python -m ml.zambia_tiles first)")
     ap.add_argument("--rebuild", action="store_true", help="rebuild the patch table from Sentinel-2/weather")
     args = ap.parse_args()
 
     if args.rebuild or not features.PATCHES_CSV.exists():
         features.DATA.mkdir(exist_ok=True)
         features.build().to_csv(features.PATCHES_CSV, index=False)
-    patches = pd.read_csv(features.PATCHES_CSV)
+    patches = pd.read_csv(zambia_tiles.TABLE) if args.zambia else features.load()
     verified = labels.simulated(patches)  # in a fixed random order: the first n are nested batches
     field = labels.field(patches)
     print(f"{len(patches)} patches, {len(field)} labels from the field app")

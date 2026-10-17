@@ -9,6 +9,7 @@ Usage (from the repo root, env gusanito-ml): python -m ml.features [--bbox lon_m
 
 import argparse
 import json
+import time
 import urllib.request
 from pathlib import Path
 
@@ -25,6 +26,7 @@ DRY_YEAR = 2025
 RES_M = 100  # one pixel = 1 ha: coarse on purpose, the model only needs the greenness pattern
 GREEN_PCT = 94  # "still green" is relative: the top 6% NDVI of the late dry season (this savanna peaks at ~0.2-0.3)
 MIN_PIXELS = 2
+MIN_DROP = 0.02  # NDVI points lost from early to late dry season; less than this is evergreen
 WORLDCOVER_HOST = {30: 1, 40: 1, 20: 0.5, 90: 0.5, 10: 0}  # grassland, cropland, shrub, wetland, trees
 
 
@@ -78,14 +80,32 @@ def _weather(bbox):
             url = ("https://archive-api.open-meteo.com/v1/archive?"
                    f"latitude={lat:.3f}&longitude={lon:.3f}&start_date={DRY_YEAR}-08-01&end_date={DRY_YEAR}-10-31"
                    "&daily=temperature_2m_mean,temperature_2m_max,precipitation_sum,et0_fao_evapotranspiration&timezone=UTC")
-            d = json.load(urllib.request.urlopen(url, timeout=60))["daily"]
+            for attempt in range(5):  # Open-Meteo throttles bursts: wait and retry
+                try:
+                    d = json.load(urllib.request.urlopen(url, timeout=60))["daily"]
+                    break
+                except (ValueError, OSError):
+                    if attempt == 4:
+                        raise
+                    time.sleep(15 * (attempt + 1))
             rows.append({"lat": lat, "lon": lon, "temp_mean": np.mean(d["temperature_2m_mean"]),
                          "temp_max": np.mean(d["temperature_2m_max"]), "rain_mm": np.sum(d["precipitation_sum"]),
                          "et0_mm": np.sum(d["et0_fao_evapotranspiration"])})
     return pd.DataFrame(rows)
 
 
-def build(bbox=DEFAULT_BBOX) -> pd.DataFrame:
+def candidates(df: pd.DataFrame) -> pd.DataFrame:
+    """Drops patches that are green all year, which says nothing about the pest: tree cover, water, built-up or
+    bare ground as the dominant land cover (host_cover 0), and patches whose greenness barely drops between early
+    and late dry season. shortcut: a flat NDVI also removes a permanently irrigated field; WorldCover 2021 is old."""
+    return df[(df.host_cover > 0) & (df.ndvi_drop >= MIN_DROP)].reset_index(drop=True)
+
+
+def load(path=PATCHES_CSV) -> pd.DataFrame:
+    return candidates(pd.read_csv(path))
+
+
+def build(bbox=DEFAULT_BBOX, prefix: str = "zm") -> pd.DataFrame:
     from rasterio.warp import transform
 
     s2 = _load_sentinel(bbox)
@@ -111,7 +131,7 @@ def build(bbox=DEFAULT_BBOX) -> pd.DataFrame:
         classes, counts = np.unique(wc[mask], return_counts=True)
         w = weather.iloc[((weather.lat - lat) ** 2 + (weather.lon - lon) ** 2).argmin()]
         rows.append({
-            "patch_id": f"zm-{blob:05d}", "lat": round(lat, 5), "lon": round(lon, 5), "area_ha": size,
+            "patch_id": f"{prefix}-{blob:05d}", "lat": round(lat, 5), "lon": round(lon, 5), "area_ha": size,
             "ndvi_late": float(np.nanmean(ndvi_l[mask])), "ndvi_early": float(np.nanmean(ndvi_e[mask])),
             "ndmi_late": float(np.nanmean(ndmi_l[mask])),
             "ndvi_ring": float(np.nanmean(ndvi_l[ring])) if ring.any() else np.nan,
@@ -122,7 +142,7 @@ def build(bbox=DEFAULT_BBOX) -> pd.DataFrame:
     df = pd.DataFrame(rows)
     df["ndvi_drop"] = df.ndvi_early - df.ndvi_late
     df["oasis"] = df.ndvi_late - df.ndvi_ring
-    return df.dropna().reset_index(drop=True)
+    return candidates(df.dropna())
 
 
 if __name__ == "__main__":
