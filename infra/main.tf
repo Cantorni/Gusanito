@@ -168,6 +168,8 @@ resource "azurerm_function_app_flex_consumption" "api" {
     ANTHROPIC_API_KEY                = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${local.anthropic_key_secret}/)"
     REPORT_TOKEN                     = random_password.report_token.result
     CLAUDE_MODEL                     = var.claude_model
+    # Base of the offline link in the alert SMS. SMS_SENDER is left unset: simulated, nothing leaves Azure.
+    PWA_URL = "https://${azurerm_static_web_app.pwa.default_host_name}"
   }
 
   site_config {
