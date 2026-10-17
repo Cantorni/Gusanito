@@ -11,7 +11,7 @@ const STATIC = {
   '/': 'index.html', '/index.html': 'index.html', '/receiver.html': 'receiver.html', '/sw.js': 'sw.js',
   '/config.js': 'config.js', '/queue.js': 'queue.js', '/manifest.json': 'manifest.json', '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png',
 };
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.geojson': 'application/geo+json', '.png': 'image/png', '.css': 'text/css', '.woff2': 'font/woff2' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.geojson': 'application/geo+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.css': 'text/css', '.woff2': 'font/woff2' };
 
 function proxy(req, res) {
   const upstream = http.request(
@@ -30,10 +30,11 @@ http.createServer((req, res) => {
 
   // Landing page of the demo (../landing): same origin as the PWA, so it reuses vendor/ and the offline map.
   const LANDING = path.join(ROOT, '..', 'landing');
-  const lf = { '/landing': 'index.html', '/landing/': 'index.html', '/landing/index.html': 'index.html', '/landing/data.json': 'data.json', '/landing/zambia.json': 'zambia.json', '/landing/zambia-outline.geojson': 'zambia-outline.geojson', '/landing/diagrama-despliegue.png': 'diagrama-despliegue.png' }[url.pathname];
-  if (lf) {
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(lf)], 'Cache-Control': 'no-cache' });
-    return fs.createReadStream(path.join(LANDING, lf)).pipe(res);
+  const lm = /^\/landing\/?([\w.-]*)$/.exec(url.pathname); // flat folder: no path separators, so no ../
+  const lfile = lm && path.join(LANDING, lm[1] || 'index.html');
+  if (lfile && fs.existsSync(lfile) && fs.statSync(lfile).isFile()) {
+    res.writeHead(200, { 'Content-Type': TYPES[path.extname(lfile)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    return fs.createReadStream(lfile).pipe(res);
   }
 
   // whitelist: listed files, plus vendor/ and the offline map (path.normalize + prefix check blocks ../)
