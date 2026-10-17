@@ -140,7 +140,7 @@
   </div>
 </section>
 
-<input id="photo-file" type="file" accept="image/*" capture="environment" hidden />
+<input id="photo-file" type="file" accept="image/*" hidden />
 
 <dialog id="ask" aria-labelledby="ask-title">
   <div class="body" id="ask-question">
@@ -259,6 +259,9 @@ function clearReservoir() {
   updateGuide();
 }
 document.getElementById('target-clear').addEventListener('click', clearReservoir);
+// True while the farmer taps the map to mark their field (alerts sign-up). Declared here, before the first
+// location fix: demo mode fixes the location synchronously while the page loads.
+let pickingField = false;
 map.on('click', e => (pickingField ? setField(e.latlng.lat, e.latlng.lng, true) : clearReservoir()));
 
 async function loadReservoirs() {
@@ -561,7 +564,7 @@ const subDlg = document.getElementById('sub');
 const subPhone = document.getElementById('sub-phone');
 const subMsg = document.getElementById('sub-msg');
 const langBtns = document.querySelectorAll('#sub [data-lang]');
-let subLang = 'es', subField = null, fieldMarker = null, pickingField = false;
+let subLang = 'es', subField = null, fieldMarker = null;
 const subStore = {
   read() { try { return JSON.parse(localStorage.getItem(SUB_KEY)); } catch (_) { return null; } },
   write(v) { try { v ? localStorage.setItem(SUB_KEY, JSON.stringify(v)) : localStorage.removeItem(SUB_KEY); } catch (_) { /* storage blocked */ } },

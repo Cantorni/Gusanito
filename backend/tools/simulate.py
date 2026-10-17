@@ -10,8 +10,6 @@ Uses the same DB as tools/local_api.py, so the PWA (frontend/dev-server.js) show
 """
 
 import argparse
-import math
-import random
 import sys
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -22,6 +20,7 @@ sys.path.insert(0, str(BACKEND))
 sys.path.insert(0, str(BACKEND / "tools"))
 
 from publish_sample_layer import DEMO_CENTER, LAYER  # noqa: E402
+from seed_demo import farmers  # noqa: E402
 
 from gusanito import alerts  # noqa: E402
 from gusanito.geo import bbox_center, distance_km, geometry_bbox  # noqa: E402
@@ -42,23 +41,14 @@ STEPS = [
     (1, "Dia 1: un extensionista encuentra larvas en chimunsi-0007 (reservorio_confirmado)", "chimunsi-0007", True),
     (2, "Dia 2: otro parche, chimunsi-0012, se revisa y no tiene larvas: nadie recibe SMS", "chimunsi-0012", False),
     (3, "Dia 3: el motor corre de nuevo (tarea diaria): nadie recibe el mismo aviso dos veces", None, None),
-    (5, "Dia 5: chimunsi-0044 tambien se confirma: avisos a los campos del suroeste", "chimunsi-0044", True),
+    (5, "Dia 5: chimunsi-0044 tambien se confirma: avisos a los campos cercanos", "chimunsi-0044", True),
 ]
 
 
 def seed(repo: SqliteRepository, n: int) -> None:
     repo.write_reservoirs_layer(LAYER)
-    rng = random.Random(7)  # same farmers every run
-    lat0, lon0 = DEMO_CENTER
-    for i in range(n):
-        # Uniform in a ~12 km radius disc: 0.11 deg latitude is ~12 km.
-        r, a = 0.11 * rng.random() ** 0.5, rng.uniform(0, 6.2832)
-        lat, lng = round(lat0 + r * math.sin(a), 5), round(lon0 + r * math.cos(a), 5)
-        repo.save_subscriber({
-            "phone": f"+26097100{i:04d}", "location": {"lat": lat, "lng": lng, "accuracy": None},
-            "language": rng.choice(["ny", "ny", "en", "es"]), "createdAt": DAY0.isoformat(),
-            "updatedAt": DAY0.isoformat(), "optOut": i == 3,  # one farmer unsubscribed: never alerted
-        })
+    for farmer in farmers(n, DAY0):
+        repo.save_subscriber(farmer)
 
 
 def report(repo: SqliteRepository, reservoir_id: str, pest: bool, when: datetime) -> dict:

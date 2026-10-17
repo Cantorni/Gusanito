@@ -41,6 +41,7 @@ logging.getLogger("azure").setLevel(logging.WARNING)
 ANALYSIS_QUEUE = "analysis-requests"
 MAX_DEQUEUE_COUNT = 5  # keep in sync with host.json extensions.queues.maxDequeueCount
 _RESERVOIR_ID = re.compile(RESERVOIR_ID_PATTERN)
+OUTBOX_LIMIT = 500  # the receiver page shows the latest alert SMS only
 
 
 @functools.cache
@@ -175,6 +176,17 @@ def list_reports(req: func.HttpRequest) -> func.HttpResponse:
     if reservoir_id is not None and not _RESERVOIR_ID.match(reservoir_id):
         return _error(400, "invalid reservoirId")
     return _json(_repository().list_reports(reservoir_id))
+
+
+@app.route(route="outbox", methods=["GET"])
+def list_outbox(req: func.HttpRequest) -> func.HttpResponse:
+    """Alert SMS, newest first: what each farmer would receive (the sender is simulated unless SMS_SENDER is set).
+    The SMS of one alert run share sentAt: the most severe and nearest come first."""
+    if denied := _check_token(req):
+        return denied
+    messages = sorted(_repository().list_outbox(), key=lambda m: (alerts.LEVELS.index(m["riskLevel"]), m["distanceKm"]))
+    messages.sort(key=lambda m: m["sentAt"], reverse=True)  # stable: keeps severity order within a run
+    return _json(messages[:OUTBOX_LIMIT])
 
 
 def _report_id(req: func.HttpRequest) -> str | None:

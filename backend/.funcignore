@@ -6,3 +6,4 @@ tools/
 local.settings.json
 local.settings.json.example
 requirements-dev.txt
+data/
