@@ -33,9 +33,9 @@ output "static_web_app_deployment_token" {
 }
 
 output "ml_workspace" {
-  value = azurerm_machine_learning_workspace.main.name
+  value = one(azurerm_machine_learning_workspace.main[*].name)
 }
 
 output "ml_compute" {
-  value = azurerm_machine_learning_compute_cluster.cpu.name
+  value = one(azurerm_machine_learning_compute_cluster.cpu[*].name)
 }

@@ -294,8 +294,12 @@ class TwilioSender:
 def sender_from_env() -> SimulatedSender | TwilioSender:
     if os.environ.get("SMS_SENDER") == "twilio":
         return TwilioSender(*(os.environ[k] for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM")))
-    default = Path(__file__).resolve().parent.parent / "data" / "outbox.jsonl"
-    return SimulatedSender(os.environ.get("ALERT_OUTBOX_FILE", str(default)))
+    if "ALERT_OUTBOX_FILE" in os.environ:
+        return SimulatedSender(os.environ["ALERT_OUTBOX_FILE"])
+    # On Azure the app folder is read-only; the outbox table already holds every message.
+    if os.environ.get("WEBSITE_SITE_NAME"):
+        return SimulatedSender(None)
+    return SimulatedSender(str(Path(__file__).resolve().parent.parent / "data" / "outbox.jsonl"))
 
 
 # ---- running ----

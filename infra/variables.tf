@@ -50,6 +50,12 @@ variable "maximum_instance_count" {
   default     = 40
 }
 
+variable "enable_ml" {
+  description = "Create the Azure ML workspace and training cluster (infra/ml.tf). The app runs without them."
+  type        = bool
+  default     = false
+}
+
 variable "ml_compute_vm_size" {
   description = "VM size of the Azure ML training cluster (CPU is enough for the tabular model)."
   type        = string

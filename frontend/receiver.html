@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Gusanito – Reportes recibidos</title>
+<title>Gusanito – Receptor</title>
 <style>
   @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-display: swap; src: url(vendor/fonts/atkinson-400.woff2) format("woff2"); }
   @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; font-display: swap; src: url(vendor/fonts/atkinson-700.woff2) format("woff2"); }
@@ -30,12 +30,29 @@
   dt { color: var(--muted); }
   .bad { color: var(--ember); font-weight: 700; }
   a { color: var(--reservoir-ink); }
-  @media (max-width: 520px) { .report { grid-template-columns: 1fr; } .report img { width: 100%; height: 200px; } }
+  nav { display: flex; gap: 4px; }
+  nav a { margin: 0; color: var(--paper); text-decoration: none; padding: 4px 12px; border-radius: 99px; border: 1.5px solid transparent; }
+  nav a[aria-current="page"] { border-color: var(--straw); }
+  header #dl { margin-left: auto; }
+  /* SMS: what the farmer's phone would show */
+  .sms { display: grid; grid-template-columns: 220px 1fr; gap: 14px; padding: 14px 0; border-bottom: 1.5px solid var(--rule); }
+  .sms .to { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .sms .meta { font-size: .92rem; color: var(--muted); }
+  .risk { display: inline-block; font-weight: 700; font-size: .85rem; padding: 1px 9px; border-radius: 99px; border: 2px solid var(--coal); margin: 4px 0; }
+  .risk.high { background: var(--ember); border-color: var(--ember); color: #fff; }
+  .risk.medium { background: var(--straw); border-color: var(--straw); }
+  .bubble { align-self: start; justify-self: start; max-width: 46ch; background: var(--paper); border: 1.5px solid var(--rule); border-radius: 16px 16px 16px 4px; padding: 10px 14px; overflow-wrap: anywhere; }
+  .bubble small { display: block; margin-top: 6px; color: var(--muted); font-size: .8rem; }
+  @media (max-width: 520px) { .report, .sms { grid-template-columns: 1fr; } .report img { width: 100%; height: 200px; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>Reportes recibidos</h1><span id="count"></span>
+  <h1 id="title">Reportes recibidos</h1><span id="count"></span>
+  <nav aria-label="Vista">
+    <a href="#reportes" data-view="reportes">Reportes</a>
+    <a href="#sms" data-view="sms">SMS enviados</a>
+  </nav>
   <a id="dl" download="reportes.json" href="#">Descargar JSON</a>
 </header>
 <main id="list"><p id="empty">Cargando…</p></main>
@@ -47,7 +64,7 @@ try { token = token || localStorage.getItem('rt'); } catch (_) {}
 if (!token) token = prompt('Token del receptor (REPORT_TOKEN)') || '';
 try { localStorage.setItem('rt', token); } catch (_) {}
 // Keep the token out of the address bar, history and any shared link.
-if (location.search) history.replaceState(null, '', location.pathname);
+if (location.search) history.replaceState(null, '', location.pathname + location.hash);
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ESTADO = {
@@ -86,16 +103,53 @@ function row(x) {
     </div></article>`;
 }
 
+// ---- SMS enviados: the alert SMS each farmer would get (nothing is really sent) ----
+const LANGUAGE = { es: 'español', en: 'inglés', ny: 'nyanja' };
+const RISK = { high: 'Riesgo alto', medium: 'Riesgo medio', low: 'Vigilancia' };
+const DIRECTION = { north: 'norte', northeast: 'noreste', east: 'este', southeast: 'sureste', south: 'sur',
+  southwest: 'suroeste', west: 'oeste', northwest: 'noroeste' };
+// The SMS ends with the offline map link: make it clickable, it opens the PWA with those points.
+const linkify = text => esc(text).replace(/https?:\/\/\S+/g, u => `<a target="_blank" rel="noopener" href="${u}">${u}</a>`);
+
+function smsRow(m) {
+  return `<article class="sms">
+    <div>
+      <div class="to">${esc(m.phone)}</div>
+      <span class="risk ${esc(m.riskLevel)}">${esc(RISK[m.riskLevel] || m.riskLevel)}</span>
+      <div class="meta">Reservorio ${esc(m.reservoirId)}, a ${esc(m.distanceKm)} km al ${esc(DIRECTION[m.direction] || m.direction)}</div>
+      <div class="meta">En ${esc(LANGUAGE[m.language] || m.language)}</div>
+    </div>
+    <p class="bubble">${linkify(m.sms)}<small>${esc(new Date(m.sentAt).toLocaleString())} · ${m.sms.length} caracteres</small></p>
+  </article>`;
+}
+
+const VIEWS = {
+  reportes: { path: 'reports', title: 'Reportes recibidos', file: 'reportes.json', render: row,
+    empty: 'Todavía no hay reportes. Envía una foto desde la app.' },
+  sms: { path: 'outbox', title: 'SMS enviados', file: 'sms.json', render: smsRow,
+    empty: 'Todavía no hay SMS. Se generan cuando una foto confirma un reservorio cerca de agricultores registrados.' },
+};
+const view = () => VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'reportes';
+
 async function load() {
-  const r = await fetch(`${API}/reports`, { headers: { 'x-report-token': token } });
+  const name = view(), v = VIEWS[name];
+  document.title = `Gusanito – ${v.title}`;
+  document.getElementById('title').textContent = v.title;
+  document.querySelectorAll('nav a').forEach(a =>
+    a.dataset.view === name ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  const r = await fetch(`${API}/${v.path}`, { headers: { 'x-report-token': token } });
+  if (name !== view()) return;  // switched tabs while loading
   const list = document.getElementById('list');
   if (!r.ok) { list.innerHTML = '<p id="empty">Token inválido. Revisa REPORT_TOKEN y recarga.</p>'; return; }
   const rows = await r.json();
   document.getElementById('count').textContent = `${rows.length} en total`;
-  document.getElementById('dl').href = 'data:application/json,' + encodeURIComponent(JSON.stringify(rows, null, 2));
-  list.innerHTML = rows.length ? rows.map(row).join('') : '<p id="empty">Todavía no hay reportes. Envía una foto desde la app.</p>';
+  const dl = document.getElementById('dl');
+  dl.download = v.file;
+  dl.href = 'data:application/json,' + encodeURIComponent(JSON.stringify(rows, null, 2));
+  list.innerHTML = rows.length ? rows.map(v.render).join('') : `<p id="empty">${v.empty}</p>`;
   list.querySelectorAll('img[data-report]:not([src])').forEach(loadPhoto);
 }
+window.addEventListener('hashchange', load);
 
 // Photos need the token header, which an <img src> cannot send: fetch them and show blob URLs.
 // Each photo is fetched once; the 15 s refresh reuses the URL.

@@ -104,6 +104,16 @@ resource "azurerm_key_vault" "main" {
   tags                       = local.tags
 }
 
+# Whoever runs Terraform can load data from a laptop (backend/tools/seed_demo.py, publish_layer.py, run_alerts.py):
+# the storage account takes Entra ID tokens for data, and owning the subscription does not grant data access.
+resource "azurerm_role_assignment" "storage_deployer" {
+  for_each = toset(["Storage Blob Data Contributor", "Storage Table Data Contributor"])
+
+  scope                = azurerm_storage_account.main.id
+  role_definition_name = each.value
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
 resource "azurerm_role_assignment" "key_vault_deployer" {
   scope                = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets Officer"
