@@ -13,6 +13,7 @@ Usage (repo root, env gusanito-ml): python -m ml.demo_timeline
 """
 
 import json
+import os
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -31,6 +32,8 @@ from ml import features, labels, train  # noqa: E402
 OUT = ROOT / "landing" / "data.json"
 DAYS, VISITS_PER_DAY, FARMERS, INITIAL = 14, 12, 30, 100
 DAY0 = datetime(2026, 9, 15, 7, 0, tzinfo=UTC)
+# Base of the map link in the SMS: the deployed PWA (terraform output pwa_url), so the links on the landing work.
+PWA_URL = os.environ.get("PWA_URL", "https://zealous-coast-0305c750f.4.azurestaticapps.net").rstrip("/")
 
 
 def fit(patches: pd.DataFrame, labelled: dict[str, bool]):
@@ -61,7 +64,7 @@ def main() -> None:
     visited = set(start)
     random_queue = [p for p in rng.permutation(patches.patch_id) if p not in visited]
     outbox: list[dict] = []
-    settings = alerts.Settings(pwa_url="https://gusanito.app", min_probability=0.9, per_farmer=True)
+    settings = alerts.Settings(pwa_url=PWA_URL, min_probability=0.9, per_farmer=True)
     found = {"guided": 0, "random": 0}
     seen = {"guided": 0, "random": 0}
     timeline = []
