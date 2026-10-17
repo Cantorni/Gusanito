@@ -40,6 +40,8 @@ class Repository:
         self._blobs = blobs
         self._tables = tables
         self._ready = False
+        # (etag, layer): the layer is several MB, read on every map move. Callers must not mutate it.
+        self._layer: tuple[str, dict[str, Any]] | None = None
 
     @classmethod
     def from_config(cls, config: Config) -> "Repository":
@@ -89,12 +91,20 @@ class Repository:
         return data, _CONTENT_TYPES[name.rsplit(".", 1)[-1]]
 
     def read_reservoirs_layer(self) -> dict[str, Any] | None:
+        """The published layer, downloaded again only when the blob changed (a cheap properties call)."""
         self._ensure()
+        blob = self._blobs.get_blob_client(LAYERS_CONTAINER, RESERVOIRS_BLOB)
         try:
-            download = self._blobs.get_blob_client(LAYERS_CONTAINER, RESERVOIRS_BLOB).download_blob()
+            etag = blob.get_blob_properties().etag
+            if self._layer and self._layer[0] == etag:
+                return self._layer[1]
+            download = blob.download_blob()
         except ResourceNotFoundError:
+            self._layer = None
             return None
-        return json.loads(download.readall())
+        layer = json.loads(download.readall())
+        self._layer = (download.properties.etag, layer)
+        return layer
 
     def write_reservoirs_layer(self, layer: dict[str, Any]) -> None:
         self._ensure()

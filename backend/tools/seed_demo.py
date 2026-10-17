@@ -1,7 +1,7 @@
-"""Prepares an environment for the presentation: the five sample reservoirs around Chimunsi
-(tools/publish_sample_layer.py) and synthetic farmers subscribed to alerts near them, so confirming a
-reservoir from the PWA produces SMS in the receiver page's "SMS enviados" view. Safe to run again: the layer
-is replaced and each farmer is stored by phone.
+"""Prepares an environment for the presentation: the Zambia reservoirs layer from the model
+(layers/zambia-reservoirs.geojson) and synthetic farmers subscribed to alerts around the demo location at
+Chimunsi, so confirming a reservoir from the PWA produces SMS in the receiver page's "SMS enviados" view.
+Safe to run again: the layer is replaced and each farmer is stored by phone.
 
 Usage (from backend/):
     .venv/bin/python tools/seed_demo.py                                     # local SQLite, data/gusanito.db
@@ -12,6 +12,7 @@ is simulated (SMS_SENDER is not set).
 """
 
 import argparse
+import json
 import math
 import os
 import random
@@ -25,10 +26,17 @@ sys.path.insert(0, str(BACKEND / "tools"))
 if not os.environ.get("DATA_STORAGE_CONNECTION_STRING") and not os.environ.get("DATA_STORAGE_ACCOUNT"):
     os.environ.setdefault("SQLITE_PATH", str(BACKEND / "data" / "gusanito.db"))
 
-from publish_sample_layer import DEMO_CENTER, LAYER  # noqa: E402
+from publish_sample_layer import DEMO_CENTER  # noqa: E402
 
 from gusanito import config  # noqa: E402
 from gusanito.storage import open_repository  # noqa: E402
+
+
+LAYER_FILE = BACKEND.parent / "layers" / "zambia-reservoirs.geojson"
+
+
+def demo_layer() -> dict:
+    return json.loads(LAYER_FILE.read_text())
 
 
 def farmers(n: int, when: datetime) -> list[dict]:
@@ -53,10 +61,11 @@ def main() -> None:
     parser.add_argument("--farmers", type=int, default=20)
     args = parser.parse_args()
     repo = open_repository(config.load())
-    repo.write_reservoirs_layer(LAYER)
+    layer = demo_layer()
+    repo.write_reservoirs_layer(layer)
     for farmer in farmers(args.farmers, datetime.now(UTC)):
         repo.save_subscriber(farmer)
-    print(f"{len(LAYER['features'])} reservoirs and {args.farmers} farmers")
+    print(f"{len(layer['features'])} reservoirs and {args.farmers} farmers")
 
 
 if __name__ == "__main__":

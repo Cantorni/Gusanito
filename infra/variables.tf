@@ -50,6 +50,12 @@ variable "maximum_instance_count" {
   default     = 40
 }
 
+variable "always_ready_instances" {
+  description = "Function App instances always running for the HTTP routes (0 lets them all scale to zero)."
+  type        = number
+  default     = 1
+}
+
 variable "enable_ml" {
   description = "Create the Azure ML workspace and training cluster (infra/ml.tf). The app runs without them. Needs permission to create role assignments (Owner or User Access Administrator)."
   type        = bool

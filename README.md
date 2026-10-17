@@ -190,14 +190,14 @@ Terraform creates no role assignments: the hackathon resource group grants Contr
 ### Presenting from Azure
 
 ```sh
-# Sample reservoirs around Chimunsi and 20 synthetic farmers subscribed near them (made-up numbers, nothing is sent)
+# The Zambia reservoirs layer (layers/zambia-reservoirs.geojson) and 20 synthetic farmers around Chimunsi (made-up numbers, nothing is sent)
 cd backend && DATA_STORAGE_CONNECTION_STRING="$(terraform -chdir=../infra output -raw storage_connection_string)" .venv/bin/python tools/seed_demo.py
 ```
 
 - **Phones:** open `<pwa_url>/?demo=chimunsi` once (a QR code is handy). Demo mode is stored per address, so turning it on locally or through a tunnel does not carry over. On iPhone, an app added to the home screen may not share Safari's storage: check that the red "Demo" chip shows, or present from the browser.
 - **Photo:** "Tomar foto del parche" offers the camera or the gallery, so a downloaded photo of fall armyworm damage works. Claude analyses it for real: use a clear photo (window-pane leaves, frass in the whorl or a visible larva), not a photo of a screen.
-- **Before presenting:** `tools/reset_demo.py` (same storage variables as above) deletes every alert SMS and every demo report, and puts back the sample reservoirs and synthetic farmers. Without it, a rehearsal leaves the reservoir already confirmed and the farmers already alerted (no repeat within 14 days). Field reports and farmers registered from the PWA are kept.
-- **SMS:** `<pwa_url>/receiver.html#sms`, no token needed. A farmer registered from the PWA at the demo location ("Recibir alertas por SMS") is a few hundred metres from `chimunsi-0007` and gets a high-risk SMS when it is confirmed.
+- **Before presenting:** `tools/reset_demo.py` (same storage variables as above) deletes every alert SMS and every demo report, and puts back the Zambia reservoirs layer and the synthetic farmers. Without it, a rehearsal leaves the reservoir already confirmed and the farmers already alerted (no repeat within 14 days). Field reports and farmers registered from the PWA are kept.
+- **SMS:** `<pwa_url>/receiver.html#sms`, no token needed. A farmer registered from the PWA at the demo location ("Recibir alertas por SMS") is 1.4 km from `zm-01324` and `zm-01337`, the nearest reservoirs, and gets a high-risk SMS when one of them is confirmed.
 
 ## Known gaps
 

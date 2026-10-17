@@ -106,16 +106,14 @@ def reservoirs(req: func.HttpRequest) -> func.HttpResponse:
     layer = repo.read_reservoirs_layer()
     if layer is None:
         return _error(404, "no reservoirs layer published yet")
-    # shortcut: reads every report per request; keep a per-reservoir state table once reports grow
-    layer = alerts.annotate_layer(layer, repo.list_reports(limit=100_000))
     bbox_text = req.params.get("bbox")
-    if not bbox_text:
-        return _json(layer)
-    try:
-        bbox = parse_bbox(bbox_text)
-    except ValueError as e:
-        return _error(400, str(e))
-    return _json(filter_by_bbox(layer, bbox))
+    if bbox_text:
+        try:
+            layer = filter_by_bbox(layer, parse_bbox(bbox_text))
+        except ValueError as e:
+            return _error(400, str(e))
+    # shortcut: reads every report per request; keep a per-reservoir state table once reports grow
+    return _json(alerts.annotate_layer(layer, repo.list_reports(limit=100_000)))
 
 
 @app.route(route="reports", methods=["POST"])
