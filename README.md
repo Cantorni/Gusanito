@@ -135,7 +135,8 @@ Needs Python 3.13, Node.js, Docker and [Azure Functions Core Tools 4](https://le
 ```sh
 # 1. Azurite, the Azure Storage emulator
 docker run -d --rm --name azurite -p 10000:10000 -p 10001:10001 -p 10002:10002 \
-  mcr.microsoft.com/azure-storage/azurite azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
+  mcr.microsoft.com/azure-storage/azurite azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 \
+  --skipApiVersionCheck   # the storage SDK can be ahead of the latest Azurite
 
 # 2. API
 cd backend
@@ -183,17 +184,18 @@ az functionapp restart -g "$(terraform output -raw resource_group)" -n "$(terraf
 terraform output -raw report_token   # for the receiver page
 ```
 
-The Function App reaches Storage with a managed identity (no keys) and reads the Anthropic key through a Key Vault reference. Its CORS allows the Static Web App and the local dev server. Whoever runs Terraform also gets data access to the storage account, for the tools below. The Azure ML workspace (`infra/ml.tf`) is off: set `enable_ml = true` to create it.
+Terraform creates no role assignments: the hackathon resource group grants Contributor, which cannot. So the Function App reaches Storage with the account key (in its app settings and in the Terraform state), and reads the Anthropic key through a Key Vault reference allowed by a Key Vault access policy. Its CORS allows the Static Web App and the local dev server. The Azure ML workspace (`infra/ml.tf`) is off: `enable_ml = true` creates it, and needs permission to assign roles.
 
 ### Presenting from Azure
 
 ```sh
 # Sample reservoirs around Chimunsi and 20 synthetic farmers subscribed near them (made-up numbers, nothing is sent)
-cd backend && DATA_STORAGE_ACCOUNT="$(terraform -chdir=../infra output -raw storage_account)" .venv/bin/python tools/seed_demo.py
+cd backend && DATA_STORAGE_CONNECTION_STRING="$(terraform -chdir=../infra output -raw storage_connection_string)" .venv/bin/python tools/seed_demo.py
 ```
 
 - **Phones:** open `<pwa_url>/?demo=chimunsi` once (a QR code is handy). Demo mode is stored per address, so turning it on locally or through a tunnel does not carry over. On iPhone, an app added to the home screen may not share Safari's storage: check that the red "Demo" chip shows, or present from the browser.
 - **Photo:** "Tomar foto del parche" offers the camera or the gallery, so a downloaded photo of fall armyworm damage works. Claude analyses it for real: use a clear photo (window-pane leaves, frass in the whorl or a visible larva), not a photo of a screen.
+- **Before presenting:** `tools/reset_demo.py` (same storage variables as above) deletes every alert SMS and every demo report, and puts back the sample reservoirs and synthetic farmers. Without it, a rehearsal leaves the reservoir already confirmed and the farmers already alerted (no repeat within 14 days). Field reports and farmers registered from the PWA are kept.
 - **SMS:** `<pwa_url>/receiver.html#sms` with the token. A farmer registered from the PWA at the demo location ("Recibir alertas por SMS") is a few hundred metres from `chimunsi-0007` and gets a high-risk SMS when it is confirmed.
 
 ## Known gaps
@@ -201,6 +203,7 @@ cd backend && DATA_STORAGE_ACCOUNT="$(terraform -chdir=../infra output -raw stor
 - **Offline queue tested by hand only:** no browser test covers IndexedDB, Background Sync or the service worker.
 - **Spend control:** anyone with the PWA can post reports, and each one is analysed. Set a spend limit on the Anthropic workspace whose key you deploy.
 - **Receiver auth** is a shared token; use Entra ID for anything beyond the hackathon.
+- **Storage keys:** without permission to assign roles, the Function App uses the storage account key. With Owner or User Access Administrator, go back to a managed identity and turn off shared keys.
 - **Alerts are simulated by default.** The Twilio sender exists but is off and untested against the real service; Africa's Talking is not wired in. The engine uses fixed templates; the Claude drafter (`/api/alerts/message`) is not in the SMS path. The Nyanja text needs a native speaker's review.
 - **Alert radius is a judgement**, not a measured gradient (see `docs/distancia-alerta.md`); wind direction is not used.
 - **Subscribers:** anyone can register or unsubscribe any number (no SMS confirmation code). Fine for a demo, not for real farmers.

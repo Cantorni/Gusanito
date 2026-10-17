@@ -50,28 +50,6 @@ resource "azurerm_storage_container" "deployment" {
   container_access_type = "private"
 }
 
-# The app reaches storage with this identity, no keys. It exists before the app, so the
-# permissions are in place when the host starts.
-resource "azurerm_user_assigned_identity" "functions" {
-  name                = "id-${local.name}"
-  resource_group_name = local.resource_group_name
-  location            = local.location
-  tags                = local.tags
-}
-
-resource "azurerm_role_assignment" "storage" {
-  for_each = toset([
-    "Storage Blob Data Owner",
-    "Storage Queue Data Contributor",
-    "Storage Table Data Contributor",
-  ])
-
-  scope                = azurerm_storage_account.main.id
-  role_definition_name = each.value
-  principal_id         = azurerm_user_assigned_identity.functions.principal_id
-  principal_type       = "ServicePrincipal"
-}
-
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "log-${local.name}"
   resource_group_name = local.resource_group_name
@@ -91,33 +69,26 @@ resource "azurerm_application_insights" "main" {
 }
 
 # The Anthropic key lives in Key Vault and is set by hand (see README), so it never lands in the
-# Terraform state.
+# Terraform state. Access policies, not Azure RBAC: the hackathon resource group grants Contributor, which
+# cannot create role assignments but can edit a vault's access policies.
 resource "azurerm_key_vault" "main" {
   name                       = "kv-${local.compact_name}"
   resource_group_name        = local.resource_group_name
   location                   = local.location
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
-  rbac_authorization_enabled = true
+  rbac_authorization_enabled = false
   soft_delete_retention_days = 7
   purge_protection_enabled   = false
   tags                       = local.tags
 }
 
-# Whoever runs Terraform can load data from a laptop (backend/tools/seed_demo.py, publish_layer.py, run_alerts.py):
-# the storage account takes Entra ID tokens for data, and owning the subscription does not grant data access.
-resource "azurerm_role_assignment" "storage_deployer" {
-  for_each = toset(["Storage Blob Data Contributor", "Storage Table Data Contributor"])
-
-  scope                = azurerm_storage_account.main.id
-  role_definition_name = each.value
-  principal_id         = data.azurerm_client_config.current.object_id
-}
-
-resource "azurerm_role_assignment" "key_vault_deployer" {
-  scope                = azurerm_key_vault.main.id
-  role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
+# Whoever runs Terraform sets the Anthropic key.
+resource "azurerm_key_vault_access_policy" "deployer" {
+  key_vault_id       = azurerm_key_vault.main.id
+  tenant_id          = data.azurerm_client_config.current.tenant_id
+  object_id          = data.azurerm_client_config.current.object_id
+  secret_permissions = ["Get", "List", "Set", "Delete", "Purge"]
 }
 
 # Token for the receiver page (agronomists reading reports).
@@ -152,32 +123,29 @@ resource "azurerm_function_app_flex_consumption" "api" {
   service_plan_id     = azurerm_service_plan.functions.id
   https_only          = true
 
-  storage_container_type            = "blobContainer"
-  storage_container_endpoint        = "${azurerm_storage_account.main.primary_blob_endpoint}${azurerm_storage_container.deployment.name}"
-  storage_authentication_type       = "UserAssignedIdentity"
-  storage_user_assigned_identity_id = azurerm_user_assigned_identity.functions.id
+  # Storage is reached with the account key: managed identities would need role assignments, which the
+  # hackathon resource group does not allow. The key ends up in the app settings and the Terraform state.
+  storage_container_type      = "blobContainer"
+  storage_container_endpoint  = "${azurerm_storage_account.main.primary_blob_endpoint}${azurerm_storage_container.deployment.name}"
+  storage_authentication_type = "StorageAccountConnectionString"
+  storage_access_key          = azurerm_storage_account.main.primary_access_key
 
   runtime_name           = "python"
   runtime_version        = "3.13"
   maximum_instance_count = var.maximum_instance_count
   instance_memory_in_mb  = 2048
 
-  # The user-assigned identity reaches storage; the system-assigned one resolves Key Vault
-  # references (the app cannot pick another identity for that).
+  # Resolves the Key Vault reference below (access policy azurerm_key_vault_access_policy.functions).
   identity {
-    type         = "SystemAssigned, UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.functions.id]
+    type = "SystemAssigned"
   }
 
+  # AzureWebJobsStorage is set by the provider from storage_access_key (setting it here shows a diff on every plan).
   app_settings = {
-    AzureWebJobsStorage__accountName = azurerm_storage_account.main.name
-    AzureWebJobsStorage__credential  = "managedidentity"
-    AzureWebJobsStorage__clientId    = azurerm_user_assigned_identity.functions.client_id
-    AZURE_CLIENT_ID                  = azurerm_user_assigned_identity.functions.client_id
-    DATA_STORAGE_ACCOUNT             = azurerm_storage_account.main.name
-    ANTHROPIC_API_KEY                = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${local.anthropic_key_secret}/)"
-    REPORT_TOKEN                     = random_password.report_token.result
-    CLAUDE_MODEL                     = var.claude_model
+    DATA_STORAGE_CONNECTION_STRING = azurerm_storage_account.main.primary_connection_string
+    ANTHROPIC_API_KEY              = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${local.anthropic_key_secret}/)"
+    REPORT_TOKEN                   = random_password.report_token.result
+    CLAUDE_MODEL                   = var.claude_model
     # Base of the offline link in the alert SMS. SMS_SENDER is left unset: simulated, nothing leaves Azure.
     PWA_URL = "https://${azurerm_static_web_app.pwa.default_host_name}"
   }
@@ -191,13 +159,11 @@ resource "azurerm_function_app_flex_consumption" "api" {
   }
 
   tags = local.tags
-
-  depends_on = [azurerm_role_assignment.storage]
 }
 
-resource "azurerm_role_assignment" "key_vault_functions" {
-  scope                = azurerm_key_vault.main.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_function_app_flex_consumption.api.identity[0].principal_id
-  principal_type       = "ServicePrincipal"
+resource "azurerm_key_vault_access_policy" "functions" {
+  key_vault_id       = azurerm_key_vault.main.id
+  tenant_id          = data.azurerm_client_config.current.tenant_id
+  object_id          = azurerm_function_app_flex_consumption.api.identity[0].principal_id
+  secret_permissions = ["Get"]
 }

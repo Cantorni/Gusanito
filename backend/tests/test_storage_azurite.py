@@ -109,3 +109,12 @@ def test_subscriber_and_outbox(repo):
     finally:
         repo._table("subscribers").delete_entity("subscriber", phone)
         repo._table("outbox").delete_entity(phone, message["id"])
+
+
+def test_delete_report_and_its_photos(repo):
+    report = new_report()
+    repo.save_photo(report["id"], 0, b"\xff\xd8data", "image/jpeg")
+    repo.create_report(report)
+    repo.delete_report(report)
+    assert repo.get_report(report["id"]) is None
+    assert repo.read_photo(report["photos"][0]["file"]) is None

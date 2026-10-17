@@ -29,7 +29,7 @@ variable "location" {
 variable "static_web_app_location" {
   description = "Region for the PWA hosting. Static Web Apps only runs in a few regions (e.g. eastus2, westus2, westeurope)."
   type        = string
-  default     = "westeurope"
+  default     = "eastus2"
 }
 
 variable "extra_cors_origins" {
@@ -51,7 +51,7 @@ variable "maximum_instance_count" {
 }
 
 variable "enable_ml" {
-  description = "Create the Azure ML workspace and training cluster (infra/ml.tf). The app runs without them."
+  description = "Create the Azure ML workspace and training cluster (infra/ml.tf). The app runs without them. Needs permission to create role assignments (Owner or User Access Administrator)."
   type        = bool
   default     = false
 }
