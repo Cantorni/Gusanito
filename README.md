@@ -39,6 +39,7 @@ The PWA gets an acknowledgement as soon as the photo is stored and never sees Cl
 | GET | `/api/reports/{id}/photos/{n}` | token | A report photo |
 | POST | `/api/subscribers` | none | Registers a farmer for SMS alerts: `phone` (E.164), `location` of the maize field, `language` es/en/ny. 201 new, 200 updated (idempotent per phone) |
 | POST | `/api/subscribers/unsubscribe` | none | `{"phone": ...}`: stops alerts. Same answer whether or not the number was registered |
+| GET | `/api/outbox` | token | Alert SMS, newest first (most severe and nearest first within one run): what each farmer would receive |
 | POST | `/api/alerts/message` | token | Drafts the SMS and voice script of an alert (`riskLevel`, `distanceKm`, `direction`, `daysToAct`, `language`: es/en/ny) |
 
 "token" is `REPORT_TOKEN`, sent as the `x-report-token` header only, never in the URL, where it would land in request logs. The receiver page fetches photos with the header and shows them as blob URLs.
@@ -86,11 +87,11 @@ Report `estado`, set from the analysis:
 
 When a report about a reservoir is analysed, the queue function runs the alert engine (`backend/gusanito/alerts.py`) for that reservoir; `tools/run_alerts.py` runs it on demand (`--dry-run` prints who would get what). Subscribers within 10 km of a confirmed reservoir, or within 5 km of an unverified one with `probabilidad` >= 0.8, get one SMS: severity by distance band (2 / 5 / 10 km, reasoning in [`docs/distancia-alerta.md`](docs/distancia-alerta.md)), GSM-7 text in es/en/ny that fits 160 characters, and the offline link (`?p=`, `gusanito/smslink.py`) that draws the reservoirs in the installed PWA with no data. The same subscriber is not alerted about the same reservoir again within 14 days unless it got worse. A reservoir whose latest verified report found no larvae never alerts.
 
-Every SMS is written to the `outbox` table (also the deduplication log). The default sender is simulated: nothing leaves the machine, and each message is appended to `backend/data/outbox.jsonl`. `SMS_SENDER=twilio` with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM` sends for real. `PWA_URL` is the link base; `ALERT_*` settings change the bands.
+Every SMS is written to the `outbox` table (also the deduplication log). The default sender is simulated: nothing leaves the machine, and each message is appended to `backend/data/outbox.jsonl` (not on Azure, where the app folder is read-only). The receiver page's "SMS enviados" tab (`receiver.html#sms`) shows them as the farmer's phone would. `SMS_SENDER=twilio` with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM` sends for real. `PWA_URL` is the link base; `ALERT_*` settings change the bands.
 
 ### Labels for the ML model
 
-`tools/export_labels.py` writes `ml/data/labels.csv`, one row per verified report (`estado` `reservorio_confirmado`, `hospedero_sin_senales` or `descartado`):
+`tools/export_labels.py` writes `ml/data/labels.csv`, one row per verified report that is not a demo report (`estado` `reservorio_confirmado`, `hospedero_sin_senales` or `descartado`):
 
 | Column | Meaning |
 |---|---|
@@ -182,7 +183,18 @@ az functionapp restart -g "$(terraform output -raw resource_group)" -n "$(terraf
 terraform output -raw report_token   # for the receiver page
 ```
 
-The Function App reaches Storage with a managed identity (no keys) and reads the Anthropic key through a Key Vault reference. Its CORS allows the Static Web App and the local dev server.
+The Function App reaches Storage with a managed identity (no keys) and reads the Anthropic key through a Key Vault reference. Its CORS allows the Static Web App and the local dev server. Whoever runs Terraform also gets data access to the storage account, for the tools below. The Azure ML workspace (`infra/ml.tf`) is off: set `enable_ml = true` to create it.
+
+### Presenting from Azure
+
+```sh
+# Sample reservoirs around Chimunsi and 20 synthetic farmers subscribed near them (made-up numbers, nothing is sent)
+cd backend && DATA_STORAGE_ACCOUNT="$(terraform -chdir=../infra output -raw storage_account)" .venv/bin/python tools/seed_demo.py
+```
+
+- **Phones:** open `<pwa_url>/?demo=chimunsi` once (a QR code is handy). Demo mode is stored per address, so turning it on locally or through a tunnel does not carry over. On iPhone, an app added to the home screen may not share Safari's storage: check that the red "Demo" chip shows, or present from the browser.
+- **Photo:** "Tomar foto del parche" offers the camera or the gallery, so a downloaded photo of fall armyworm damage works. Claude analyses it for real: use a clear photo (window-pane leaves, frass in the whorl or a visible larva), not a photo of a screen.
+- **SMS:** `<pwa_url>/receiver.html#sms` with the token. A farmer registered from the PWA at the demo location ("Recibir alertas por SMS") is a few hundred metres from `chimunsi-0007` and gets a high-risk SMS when it is confirmed.
 
 ## Known gaps
 

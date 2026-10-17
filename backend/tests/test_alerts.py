@@ -177,6 +177,15 @@ def test_sender_is_simulated_unless_twilio_is_asked_for(monkeypatch):
         alerts.sender_from_env()
 
 
+def test_simulated_sender_writes_no_file_on_azure(monkeypatch):
+    monkeypatch.delenv("SMS_SENDER", raising=False)
+    monkeypatch.delenv("ALERT_OUTBOX_FILE", raising=False)
+    monkeypatch.setenv("WEBSITE_SITE_NAME", "func-gusanito")  # set by the Functions host: read-only app folder
+    assert alerts.sender_from_env().path is None
+    monkeypatch.setenv("ALERT_OUTBOX_FILE", "/tmp/outbox.jsonl")
+    assert alerts.sender_from_env().path == "/tmp/outbox.jsonl"
+
+
 def test_settings_from_env(monkeypatch):
     monkeypatch.setenv("ALERT_RADIUS_KM", "8")
     monkeypatch.setenv("PWA_URL", "https://x.app/")

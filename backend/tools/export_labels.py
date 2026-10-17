@@ -46,7 +46,8 @@ def label_row(r: dict) -> dict:
 
 
 def verified(reports: list[dict]) -> list[dict]:
-    return [r for r in reports if r.get("estado") in VERIFIED and r.get("analisis")]
+    """Verified field reports. Demo reports are left out: their location is fixed, not where the photo was taken."""
+    return [r for r in reports if r.get("estado") in VERIFIED and r.get("analisis") and not r.get("demo")]
 
 
 def main() -> None:
