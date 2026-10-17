@@ -149,7 +149,7 @@
   <div class="wrap">
     <nav>
       <b>BRA<span>SA</span></b>
-      <div><a href="#felix">Felix</a><a href="#problema">El problema</a><a href="#como">Solución</a><a href="#demo">Demo</a><a href="#impacto">Impacto</a></div>
+      <div><a href="#felix">Felix</a><a href="#problema">El problema</a><a href="#como">Solución</a><a href="#arquitectura">Arquitectura</a><a href="#demo">Demo</a><a href="#impacto">Impacto</a></div>
     </nav>
     <h1>BRASA</h1>
     <p class="tag">Alerta temprana contra el gusano cogollero: buscar la plaga <em>antes</em> de que llegue al maíz.</p>
@@ -226,13 +226,13 @@
         <div class="steps">
           <div class="step"><i>1</i><h4>Detectar</h4><p>Satélite y clima encuentran parches verdes.</p></div>
           <div class="step"><i>2</i><h4>Calificar</h4><p>El modelo de ML estima la probabilidad de reservorio.</p></div>
-          <div class="step"><i>3</i><h4>Planificar</h4><p>Mapa y ruta en la app del extensionista.</p></div>
+          <div class="step"><i>3</i><h4>Planificar</h4><p>Mapa y ruta en la app del agricultor.</p></div>
         </div>
       </div>
       <div class="stage-row" style="--c: var(--seca)">
         <h3>🔍 Estación seca · Verificar</h3>
         <div class="steps">
-          <div class="step"><i>4</i><h4>Verificar</h4><p>El extensionista visita el parche y saca fotos.</p></div>
+          <div class="step"><i>4</i><h4>Verificar</h4><p>El agricultor visita el parche y saca fotos.</p></div>
           <div class="step"><i>5</i><h4>Analizar</h4><p>Claude busca señales del gusano en las fotos.</p></div>
           <div class="step"><i>6</i><h4>Confirmar</h4><p>Reservorio confirmado o descartado.</p></div>
         </div>
@@ -250,7 +250,20 @@
   </div>
 </section>
 
-<section id="demo">
+<section id="arquitectura">
+  <div class="wrap">
+    <div class="eyebrow">Arquitectura</div>
+    <h2>Cómo está desplegado</h2>
+    <p class="sub">Todo en Azure: la app se sirve como sitio estático, el back-end y el motor de alertas son Azure Functions, y el modelo se reentrena en Azure ML.</p>
+    <div class="arch">
+      <div class="card panel"><h3>1 · El modelo mejora</h3><p class="note" style="margin:0">Una foto llega al back-end, Claude da el veredicto, queda como etiqueta y el entrenamiento publica una capa nueva que recibe el mapa del teléfono.</p></div>
+      <div class="card panel"><h3>2 · Se avisa a quien corresponde</h3><p class="note" style="margin:0">Con un reporte verificado, el motor de alertas decide a qué familias avisar según la distancia al reservorio y arma un SMS con un enlace que funciona sin datos.</p></div>
+    </div>
+    <a href="diagrama-despliegue.png" target="_blank" rel="noopener"><img class="archimg" src="diagrama-despliegue.png" alt="Diagrama de despliegue: teléfono, Azure Static Web Apps, back-end y motor de alertas en Azure Functions, Azure ML, bases de datos y APIs externas"></a>
+  </div>
+</section>
+
+<section id="demo" class="alt">
   <div class="wrap">
     <div class="eyebrow">Demo</div>
     <h2>Quince días en Zambia <span class="badge">datos de demostración</span></h2>
@@ -301,7 +314,7 @@
   </div>
 </section>
 
-<section id="modelo" class="alt">
+<section id="modelo">
   <div class="wrap">
     <div class="eyebrow">El modelo</div>
     <h2>Mejora con cada foto verificada <span class="badge">datos de demostración</span></h2>
@@ -310,19 +323,6 @@
       <svg class="chart" id="curve" viewBox="0 0 520 320" role="img" aria-label="AUC por versión del modelo"></svg>
       <div id="curveText"></div>
     </div>
-  </div>
-</section>
-
-<section id="arquitectura">
-  <div class="wrap">
-    <div class="eyebrow">Arquitectura</div>
-    <h2>Cómo está desplegado</h2>
-    <p class="sub">Todo en Azure: la app se sirve como sitio estático, el back-end y el motor de alertas son Azure Functions, y el modelo se reentrena en Azure ML.</p>
-    <div class="arch">
-      <div class="card panel"><h3>1 · El modelo mejora</h3><p class="note" style="margin:0">Una foto llega al back-end, Claude da el veredicto, queda como etiqueta y el entrenamiento publica una capa nueva que recibe el mapa del teléfono.</p></div>
-      <div class="card panel"><h3>2 · Se avisa a quien corresponde</h3><p class="note" style="margin:0">Con un reporte verificado, el motor de alertas decide a qué familias avisar según la distancia al reservorio y arma un SMS con un enlace que funciona sin datos.</p></div>
-    </div>
-    <a href="diagrama-despliegue.png" target="_blank" rel="noopener"><img class="archimg" src="diagrama-despliegue.png" alt="Diagrama de despliegue: teléfono, Azure Static Web Apps, back-end y motor de alertas en Azure Functions, Azure ML, bases de datos y APIs externas"></a>
   </div>
 </section>
 
